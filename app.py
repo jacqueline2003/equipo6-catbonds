@@ -37,7 +37,7 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap');
 html, body, [class*="css"], .stMarkdown, p, li, label { font-family: 'Source Sans 3', sans-serif; }
 h1, h2, h3, .big { font-family: 'Space Grotesk', sans-serif !important; letter-spacing: -0.01em; }
-#MainMenu, footer, header [data-testid="stToolbar"] { visibility: hidden; }
+#MainMenu, footer { visibility: hidden; }
 .block-container { padding-top: 1.6rem; }
 .tag { display:inline-block; padding:2px 10px; border-radius:999px; font-size:0.8rem; font-weight:600; }
 .tag-cat { background:#C8553D; color:#fff; }
