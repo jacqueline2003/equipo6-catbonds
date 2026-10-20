@@ -48,7 +48,9 @@ h1, h2, h3, .big { font-family: 'Space Grotesk', sans-serif !important; letter-s
 .ok { color:#2F7D4F; font-weight:600; }
 .mal { color:#B23A2B; font-weight:700; }
 .persona { border-radius:10px; padding:8px 10px; font-weight:600; font-size:0.95rem; color:#fff; text-align:center;
-           overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-bottom:8px; }
+           overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.rejilla { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; }
+@media (max-width: 640px) { .rejilla { grid-template-columns:repeat(3, 1fr); gap:6px; } .persona { font-size:0.8rem; padding:6px 4px; } }
 .p-jugando { background:#9AA3AC; } .p-cat { background:#3C8D5A; } .p-hit { background:#B23A2B; } .p-normal { background:#2E5E8C; }
 .metric { font-family:'Space Grotesk',sans-serif; font-size:2.6rem; margin:2px 0 8px; font-weight:700; line-height:1.1; }
 .label { font-size:0.85rem; margin-bottom:2px; color:#5B6672; text-transform:uppercase; letter-spacing:0.04em; }
@@ -363,10 +365,7 @@ def pantalla_stand():
                     "<span class='tag tag-normal'>Bono normal</span>", unsafe_allow_html=True)
         st.write("")
         recientes = res[-18:][::-1]
-        for i in range(0, len(recientes), 6):
-            cols = st.columns(6)
-            for col, r in zip(cols, recientes[i:i + 6]):
-                col.markdown(chip(r), unsafe_allow_html=True)
+        st.markdown(f"<div class='rejilla'>{''.join(chip(r) for r in recientes)}</div>", unsafe_allow_html=True)
 
 
 @st.fragment(run_every=2)
@@ -422,12 +421,10 @@ def pantalla():
                 "<span class='tag tag-normal'>Bono normal</span>", unsafe_allow_html=True)
     st.write("")
     orden = sorted(res.values(), key=lambda r: (r["eleccion"] != "cat", not r["golpeado"], r["nombre"].lower()))
-    cols_por_fila = 6
-    for i in range(0, len(orden), cols_por_fila):
-        cols = st.columns(cols_por_fila)
-        for col, r in zip(cols, orden[i:i + cols_por_fila]):
-            cls = "p-normal" if r["eleccion"] == "normal" else ("p-hit" if r["golpeado"] else "p-cat")
-            col.markdown(f"<div class='persona {cls}'>{r['nombre']}</div>", unsafe_allow_html=True)
+    chips = "".join(
+        f"<div class='persona {'p-normal' if r['eleccion'] == 'normal' else ('p-hit' if r['golpeado'] else 'p-cat')}'>{r['nombre']}</div>"
+        for r in orden)
+    st.markdown(f"<div class='rejilla'>{chips}</div>", unsafe_allow_html=True)
 
     if anio == ANIOS and n:
         st.divider()
