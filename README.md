@@ -2,6 +2,13 @@
 
 Dinámica del PIA (Equipo 6, Bonos catastróficos). El público vota desde el celular y la pantalla muestra en vivo qué le pasó a cada quien en 4 años.
 
+## Dos modos (se eligen en la pantalla, en Controles)
+
+- **Salón: todos a la vez.** Todos votan, se cierra la votación y el presentador avanza los años con un botón.
+- **Stand: llegan de a pocos.** Cada visitante juega sus 4 años en su propio celular. La pantalla va sumando a todos los que pasan en el día.
+
+Cambiar de modo borra los votos.
+
 ## Links
 
 - Celular: `https://TU-APP.streamlit.app` (es el link del QR)

@@ -2,6 +2,10 @@
 Sé el inversionista - dinámica del PIA, Equipo 6
 Productos Financieros Derivados, FCFM UANL
 
+Modos (se eligen en la pantalla):
+  salón -> todos votan, se cierra la votación y el presentador avanza los años
+  stand -> cada visitante juega sus 4 años en su celular; la pantalla acumula a todos
+
 Vistas:
   celular  ->  https://TU-APP.streamlit.app
   pantalla ->  https://TU-APP.streamlit.app/?vista=pantalla&clave=CLAVE
@@ -45,7 +49,7 @@ h1, h2, h3, .big { font-family: 'Space Grotesk', sans-serif !important; letter-s
 .mal { color:#B23A2B; font-weight:700; }
 .persona { border-radius:10px; padding:8px 10px; font-weight:600; font-size:0.95rem; color:#fff; text-align:center;
            overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-bottom:8px; }
-.p-cat { background:#3C8D5A; } .p-hit { background:#B23A2B; } .p-normal { background:#2E5E8C; }
+.p-jugando { background:#9AA3AC; } .p-cat { background:#3C8D5A; } .p-hit { background:#B23A2B; } .p-normal { background:#2E5E8C; }
 .metric { font-family:'Space Grotesk',sans-serif; font-size:2.6rem; margin:2px 0 8px; font-weight:700; line-height:1.1; }
 .label { font-size:0.85rem; margin-bottom:2px; color:#5B6672; text-transform:uppercase; letter-spacing:0.04em; }
 .grande { font-family:'Space Grotesk',sans-serif; font-size:3rem; font-weight:700; line-height:1.05; margin:4px 0 6px; }
@@ -60,7 +64,8 @@ def estado():
     return {
         "lock": threading.Lock(),
         "votos": {},            # id -> {"nombre": str, "eleccion": "cat" | "normal"}
-        "fase": "votacion",     # votacion | sorteo
+        "modo": "salon",        # salon (todos a la vez) | stand (llegan de a pocos)
+        "fase": "votacion",     # votacion | sorteo (solo modo salón)
         "anio": 0,              # último año revelado (0 a 4)
         "semilla": random.randint(1, 10**9),
         "params": dict(DEFAULTS),
@@ -132,8 +137,9 @@ def vista_celular():
     st.markdown("<div class='label'>PIA · Equipo 6 · Bonos catastróficos</div>", unsafe_allow_html=True)
     st.markdown("## Sé el inversionista")
 
+    stand = E["modo"] == "stand"
     if pid not in E["votos"]:
-        if E["fase"] != "votacion":
+        if not stand and E["fase"] != "votacion":
             st.info("La votación ya cerró. Sigue los resultados en la pantalla.")
             return
         pr = E["params"]
@@ -155,16 +161,74 @@ def vista_celular():
             if st.form_submit_button("Invertir", type="primary", use_container_width=True):
                 if not nombre.strip() or eleccion is None:
                     st.warning("Escribe tu nombre y elige un bono.")
-                elif E["fase"] != "votacion":
+                elif not stand and E["fase"] != "votacion":
                     st.info("La votación ya cerró.")
                 else:
                     with E["lock"]:
                         E["votos"][pid] = {"nombre": nombre.strip(),
-                                           "eleccion": "cat" if eleccion == "Cat bond" else "normal"}
+                                           "eleccion": "cat" if eleccion == "Cat bond" else "normal",
+                                           "anio": 0}
                     st.rerun()
         return
 
-    seguimiento(pid)
+    if stand:
+        seguimiento_stand(pid)
+    else:
+        seguimiento(pid)
+
+
+def tabla_anios(v, filas, anio):
+    html = "<div class='card'>"
+    for f in filas[:anio]:
+        if f["sismo"]:
+            txt = f"<span class='mal'>Sismo. Se disparó el bono: pierdes {dinero(f['perdido'])}</span>"
+        elif v["eleccion"] == "cat" and f["principal"] == 0:
+            txt = "<span style='color:#8A939C'>Ya no te queda principal</span>"
+        else:
+            txt = "<span class='ok'>Sin sismo</span>"
+        html += f"<div class='anio'><span><b>Año {f['anio']}</b> · {txt}</span><span>+{dinero(f['cupon'])}</span></div>"
+    html += "</div>"
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def resultado_final(v, sismos, filas):
+    inv = E["params"]["inversion"]
+    tot = total_recibido(filas)
+    otro = "normal" if v["eleccion"] == "cat" else "cat"
+    tot_otro = total_recibido(flujos(otro, sismos))
+    signo = "ganaste" if tot >= inv else "perdiste"
+    st.markdown(f"<div class='label'>Recibiste en total</div><div class='grande'>{dinero(tot)}</div>"
+                f"<p>O sea, {signo} {dinero(abs(tot - inv))} sobre tus {dinero(inv)}.</p>",
+                unsafe_allow_html=True)
+    nombre_otro = "bono normal" if otro == "normal" else "cat bond"
+    st.caption(f"Con el {nombre_otro} habrías recibido {dinero(tot_otro)}.")
+
+
+def seguimiento_stand(pid):
+    """Modo stand: cada visitante avanza sus propios años."""
+    v = E["votos"].get(pid)
+    if v is None:
+        st.info("Se reinició la dinámica. Recarga la página para volver a jugar.")
+        return
+    tag = "<span class='tag tag-cat'>Cat bond</span>" if v["eleccion"] == "cat" else "<span class='tag tag-normal'>Bono normal</span>"
+    st.markdown(f"**{v['nombre']}**, invertiste en {tag}", unsafe_allow_html=True)
+    sismos = sismos_de(pid)
+    filas = flujos(v["eleccion"], sismos)
+    anio = v.get("anio", 0)
+    if anio == 0:
+        st.markdown("<div class='card'>Vamos a ver qué pasa con tu dinero año por año.</div>", unsafe_allow_html=True)
+    else:
+        tabla_anios(v, filas, anio)
+    if anio < ANIOS:
+        etiqueta = "Empezar: año 1" if anio == 0 else f"Siguiente: año {anio + 1}"
+        if st.button(etiqueta, type="primary", use_container_width=True):
+            v["anio"] = anio + 1
+            st.rerun()
+    else:
+        resultado_final(v, sismos, filas)
+        if st.button("Jugar otra vez", use_container_width=True):
+            st.query_params["id"] = uuid.uuid4().hex[:10]
+            st.rerun()
 
 
 @st.fragment(run_every=2)
@@ -184,37 +248,29 @@ def seguimiento(pid):
 
     sismos = sismos_de(pid)
     filas = flujos(v["eleccion"], sismos)
-    html = "<div class='card'>"
-    for f in filas[:anio]:
-        if f["sismo"]:
-            txt = f"<span class='mal'>Sismo. Se disparó el bono: pierdes {dinero(f['perdido'])}</span>"
-        elif v["eleccion"] == "cat" and f["principal"] == 0:
-            txt = "<span style='color:#8A939C'>Ya no te queda principal</span>"
-        else:
-            txt = "<span class='ok'>Sin sismo</span>"
-        html += f"<div class='anio'><span><b>Año {f['anio']}</b> · {txt}</span><span>+{dinero(f['cupon'])}</span></div>"
-    html += "</div>"
-    st.markdown(html, unsafe_allow_html=True)
-
+    tabla_anios(v, filas, anio)
     if anio == ANIOS:
-        inv = E["params"]["inversion"]
-        tot = total_recibido(filas)
-        otro = "normal" if v["eleccion"] == "cat" else "cat"
-        tot_otro = total_recibido(flujos(otro, sismos))
-        signo = "ganaste" if tot >= inv else "perdiste"
-        st.markdown(f"<div class='label'>Recibiste en total</div><div class='grande'>{dinero(tot)}</div>"
-                    f"<p>O sea, {signo} {dinero(abs(tot - inv))} sobre tus {dinero(inv)}.</p>",
-                    unsafe_allow_html=True)
-        nombre_otro = "bono normal" if otro == "normal" else "cat bond"
-        st.caption(f"Con el {nombre_otro} habrías recibido {dinero(tot_otro)}.")
+        resultado_final(v, sismos, filas)
 
 
 # ============================== VISTA PANTALLA ==============================
 def controles():
     with st.sidebar:
         st.markdown("### Controles")
-        st.caption("Votación abierta" if E["fase"] == "votacion" else f"Sorteo · año {E['anio']} de {ANIOS}")
-        if E["fase"] == "votacion":
+        opciones = {"salon": "Salón: todos a la vez", "stand": "Stand: llegan de a pocos"}
+        nuevo = st.radio("Modo", list(opciones), format_func=opciones.get,
+                         index=list(opciones).index(E["modo"]))
+        if nuevo != E["modo"]:
+            with E["lock"]:
+                E.update(modo=nuevo, votos={}, fase="votacion", anio=0, semilla=random.randint(1, 10**9))
+            st.rerun()
+        if E["modo"] == "stand":
+            st.caption("Cada visitante avanza sus años en su celular. La pantalla suma a todos los que pasan.")
+        else:
+            st.caption("Votación abierta" if E["fase"] == "votacion" else f"Sorteo · año {E['anio']} de {ANIOS}")
+        if E["modo"] == "stand":
+            pass
+        elif E["fase"] == "votacion":
             if st.button("Cerrar votación y empezar", type="primary", use_container_width=True):
                 with E["lock"]:
                     E["fase"], E["anio"] = "sorteo", 0
@@ -243,8 +299,81 @@ def controles():
             st.rerun()
 
 
+def chip(r):
+    if r["eleccion"] == "normal":
+        cls = "p-normal"
+    elif r["golpeado"]:
+        cls = "p-hit"
+    elif r["terminado"]:
+        cls = "p-cat"
+    else:
+        cls = "p-jugando"
+    return f"<div class='persona {cls}'>{r['nombre']}</div>"
+
+
+def pantalla_stand():
+    pr = E["params"]
+    votos = list(E["votos"].items())
+    res = []
+    for pid, v in votos:
+        s = sismos_de(pid)
+        filas = flujos(v["eleccion"], s)
+        a = v.get("anio", 0)
+        res.append({**v, "sismos": s, "filas": filas, "terminado": a == ANIOS,
+                    "golpeado": any(f["sismo"] for f in filas[:a])})
+    n = len(res)
+    fin = [r for r in res if r["terminado"]]
+    cat = [total_recibido(r["filas"]) for r in fin if r["eleccion"] == "cat"]
+    nor = [total_recibido(r["filas"]) for r in fin if r["eleccion"] == "normal"]
+    n_cat = sum(r["eleccion"] == "cat" for r in res)
+    golpeados = sum(r["golpeado"] for r in res)
+
+    izq, der = st.columns([1, 1.5], gap="large")
+    with izq:
+        st.markdown("<div class='label'>Escanea y juega</div>", unsafe_allow_html=True)
+        st.image(qr_png(url_base()), use_container_width=True)
+        st.caption(url_base())
+    with der:
+        st.markdown("# ¿Dónde pondrías tus $10,000?")
+        st.markdown(f"<span class='tag tag-cat'>Cat bond · {cupon_cat():.1%}</span> &nbsp; "
+                    f"<span class='tag tag-normal'>Bono normal · {pr['tasa_normal']:.1%}</span>",
+                    unsafe_allow_html=True)
+        st.write("")
+        a, b, c = st.columns(3)
+        a.markdown(f"<div class='label'>Han jugado</div><div class='metric'>{n}</div>", unsafe_allow_html=True)
+        b.markdown(f"<div class='label'>Eligieron cat bond</div><div class='metric' style='color:#C8553D'>{n_cat}</div>", unsafe_allow_html=True)
+        c.markdown(f"<div class='label'>Les tocó el sismo</div><div class='metric' style='color:#B23A2B'>{golpeados}</div>", unsafe_allow_html=True)
+        x, y = st.columns(2)
+        if cat:
+            x.markdown(f"<div class='label'>Promedio cat bond</div><div class='metric' style='color:#C8553D'>{dinero(sum(cat)/len(cat))}</div>", unsafe_allow_html=True)
+        if nor:
+            y.markdown(f"<div class='label'>Promedio bono normal</div><div class='metric' style='color:#2E5E8C'>{dinero(sum(nor)/len(nor))}</div>", unsafe_allow_html=True)
+        if fin:
+            hit_all = sum(any(r["sismos"]) for r in fin)
+            teoria = 1 - (1 - pr["p"]) ** ANIOS
+            st.markdown(f"<div class='card'>Si los {len(fin)} que ya terminaron hubieran elegido cat bond, "
+                        f"<b>{hit_all / len(fin):.0%}</b> habría perdido su dinero. La teoría dice <b>{teoria:.0%}</b>. "
+                        f"Entre más gente juega, más se acercan.</div>", unsafe_allow_html=True)
+
+    if res:
+        st.markdown("<div class='label' style='margin-top:10px'>Últimos en jugar</div>", unsafe_allow_html=True)
+        st.markdown("<span class='tag' style='background:#9AA3AC;color:#fff'>Jugando</span> &nbsp; "
+                    "<span class='tag' style='background:#3C8D5A;color:#fff'>Cat bond intacto</span> &nbsp; "
+                    "<span class='tag' style='background:#B23A2B;color:#fff'>Cat bond disparado</span> &nbsp; "
+                    "<span class='tag tag-normal'>Bono normal</span>", unsafe_allow_html=True)
+        st.write("")
+        recientes = res[-18:][::-1]
+        for i in range(0, len(recientes), 6):
+            cols = st.columns(6)
+            for col, r in zip(cols, recientes[i:i + 6]):
+                col.markdown(chip(r), unsafe_allow_html=True)
+
+
 @st.fragment(run_every=2)
 def pantalla():
+    if E["modo"] == "stand":
+        pantalla_stand()
+        return
     votos = dict(E["votos"])
     n = len(votos)
     n_cat = sum(v["eleccion"] == "cat" for v in votos.values())
