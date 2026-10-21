@@ -150,13 +150,18 @@ def vista_celular():
         with c1:
             st.markdown(f"""<div class='card'><span class='tag tag-cat'>Cat bond</span>
             <div class='big' style='font-size:1.8rem;margin:8px 0 2px'>{cupon_cat():.1%} anual</div>
-            <p style='margin:0'>Si no tiembla, ganas mucho. Si hay un sismo fuerte en la zona, pierdes tu dinero y se va a la reconstrucción.</p></div>""",
+            <p style='margin:0'>Si no tiembla, ganas mucho. Si hay un sismo muy fuerte en las zonas que cubre el bono, pierdes tu dinero y se va a la reconstrucción.</p></div>""",
                         unsafe_allow_html=True)
         with c2:
             st.markdown(f"""<div class='card'><span class='tag tag-normal'>Bono normal</span>
             <div class='big' style='font-size:1.8rem;margin:8px 0 2px'>{pr['tasa_normal']:.1%} anual</div>
             <p style='margin:0'>Pase lo que pase, cobras tus intereses y al final te regresan tu dinero.</p></div>""",
                         unsafe_allow_html=True)
+        with st.expander("¿De dónde es este bono?"):
+            st.write("Es del gobierno federal de México, emitido con el Banco Mundial; no es de una sola ciudad. "
+                     "Cubre sismos muy fuertes en zonas definidas del país, sobre todo el sur y la costa del Pacífico, "
+                     "donde ocurren los más grandes. Cada zona tiene su propia magnitud mínima para dispararse. "
+                     "Así funcionó en 2017: el sismo de Chiapas (8.1) lo activó y México cobró 150 millones de dólares.")
         with st.form("voto"):
             nombre = st.text_input("Tu nombre", max_chars=18, placeholder="Ej. Ana")
             eleccion = st.radio("Mi elección", ["Cat bond", "Bono normal"], horizontal=True, index=None)
