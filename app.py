@@ -105,7 +105,7 @@ def flujos(eleccion, sismos):
             cupon = principal * cupon_cat()
             perdido = min(principal, pr["severidad"] * inv) if sismos[a] else 0.0
             principal -= perdido
-        filas.append({"anio": a + 1, "sismo": sismos[a] and eleccion == "cat",
+        filas.append({"anio": a + 1, "sismo": sismos[a] and eleccion == "cat", "evento": sismos[a],
                       "cupon": cupon, "perdido": perdido, "principal": principal})
     return filas
 
@@ -187,7 +187,10 @@ def vista_celular():
 def tabla_anios(v, filas, anio):
     html = "<div class='card'>"
     for f in filas[:anio]:
-        if f["sismo"]:
+        if v["eleccion"] == "normal":
+            txt = ("<span class='ok'>Cobraste tu interés</span> <span style='color:#8A939C'>· hubo sismo, "
+                   "pero a tu bono no le afecta</span>") if f["evento"] else "<span class='ok'>Cobraste tu interés</span>"
+        elif f["sismo"]:
             txt = f"<span class='mal'>Sismo. Se disparó el bono: pierdes {dinero(f['perdido'])}</span>"
         elif v["eleccion"] == "cat" and f["principal"] == 0:
             txt = "<span style='color:#8A939C'>Ya no te queda principal</span>"
