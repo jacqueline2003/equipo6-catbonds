@@ -16,16 +16,16 @@ Cambiar de modo borra los votos.
 
 Antes de la expo cambien la `CLAVE` en `app.py`.
 
-## Supuestos (los mismos de la pestaña 3 del Excel)
+## Supuestos (los mismos de la pestaña 3 del Excel; bono vigente de México 2024, clase B de sismo)
 
 | | Valor |
 |---|---|
 | Inversión | $10,000 |
-| Probabilidad anual de sismo (p) | 3.43% |
+| Probabilidad anual de sismo (p) | 5.84% |
 | Severidad (s) | 100% |
 | Tasa del bono normal (r_f) | 4% |
-| Múltiplo de riesgo (m) | 1.31 |
-| Cupón del cat bond | r_f + p × s × m = 8.49% |
+| Múltiplo de riesgo (m) | 1.88 (margen 11% / 5.84%) |
+| Cupón del cat bond | r_f + p × s × m = 15% |
 
 Se cambian en la pantalla, en "Supuestos". Muévanlos **antes** de abrir la votación, porque el cupón depende de p.
 

@@ -24,9 +24,9 @@ CLAVE = "equipo6"  # cámbienla antes de la expo
 DEFAULTS = {
     "inversion": 10_000,
     "tasa_normal": 0.04,   # supuesto del equipo
-    "p": 0.0343,           # pérdida esperada anual del bono 2017 (s = 100%)
+    "p": 0.0584,           # pérdida esperada anual, bono vigente 2024 clase B (se supone s = 100%)
     "severidad": 1.0,
-    "m": 1.31,             # margen 4.5% / pérdida esperada 3.43% (bono 2017)
+    "m": 0.11 / 0.0584,    # margen 11% / pérdida esperada 5.84% ≈ 1.88 (bono 2024 clase B)
 }
 ANIOS = 4
 
@@ -161,7 +161,7 @@ def vista_celular():
             st.write("Es del gobierno federal de México, emitido con el Banco Mundial; no es de una sola ciudad. "
                      "Cubre sismos muy fuertes en zonas definidas del país, sobre todo el sur y la costa del Pacífico, "
                      "donde ocurren los más grandes. Cada zona tiene su propia magnitud mínima para dispararse. "
-                     "Así funcionó en 2017: el sismo de Chiapas (8.1) lo activó y México cobró 150 millones de dólares.")
+                     "Los números de esta dinámica son del bono vigente, emitido en 2024 y con vencimiento en 2028. \n\nAsí ya pasó en 2017: el sismo de Chiapas (8.1) activó el bono de entonces y México cobró 150 millones de dólares.")
         with st.form("voto"):
             nombre = st.text_input("Tu nombre", max_chars=18, placeholder="Ej. Ana")
             eleccion = st.radio("Mi elección", ["Cat bond", "Bono normal"], horizontal=True, index=None)
@@ -298,7 +298,7 @@ def controles():
         with st.expander("Supuestos"):
             pr = E["params"]
             pr["p"] = st.number_input("Probabilidad anual de sismo", 0.0, 1.0, pr["p"], 0.005, format="%.4f",
-                                      help="Real 2017: 3.43%. Súbanla si son pocos en el salón y quieren que se vea algún sismo.")
+                                      help="Bono vigente 2024, clase B: 5.84%.")
             pr["tasa_normal"] = st.number_input("Tasa del bono normal", 0.0, 1.0, pr["tasa_normal"], 0.001, format="%.4f")
             pr["severidad"] = st.number_input("% del principal que se pierde", 0.0, 1.0, pr["severidad"], 0.25)
             pr["m"] = st.number_input("Múltiplo de riesgo (m)", 0.5, 5.0, pr["m"], 0.05, format="%.2f")
