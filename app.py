@@ -168,10 +168,9 @@ def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None):
                f"<span><span class='tag tag-normal'>{hits_normal}</span> "
                f"{'tenía bono normal: no le afectó' if hits_normal == 1 else 'tenían bono normal: no les afectó'}</span></div>"
                if hits_cat is not None else "")
-            + f"<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>Lo esperado ({teoria:.0%}) es la probabilidad "
-              f"de que tiemble al menos una vez en {ANIOS} años, con {E['params']['p']:.2%} por año. "
-              f"El sismo pasa o no sin importar qué bono elegiste; por eso contamos a todos, aunque a los del bono normal no les afecte. Con poca gente el número "
-              f"brinca mucho; entre más personas jueguen, más se acerca al {teoria:.0%}.</p></div>")
+            + f"<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>{teoria:.0%} = probabilidad de que tiemble al menos una vez en {ANIOS} años. "
+              f"Contamos a todos porque el sismo no depende del bono que elegiste. "
+              f"Con más gente, el grupo se acerca al {teoria:.0%}.</p></div>")
 
 
 def regla_cupon():
