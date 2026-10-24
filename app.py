@@ -27,6 +27,7 @@ DEFAULTS = {
     "p": 0.0584,           # pérdida esperada anual, bono vigente 2024 clase B (se supone s = 100%)
     "severidad": 1.0,
     "m": 0.11 / 0.0584,    # margen 11% / pérdida esperada 5.84% ≈ 1.88 (bono 2024 clase B)
+    "trimestral": True,    # cupón por trimestre (como el bono real) o una vez al año
 }
 ANIOS = 4
 
@@ -96,12 +97,18 @@ def dinero(x):
 def sismos_de(pid):
     """Sorteo fijo por persona: no cambia aunque entren más votos."""
     rng = random.Random(f"{E['semilla']}|{pid}")
-    return [rng.random() < E["params"]["p"] for _ in range(ANIOS)]
+    res = []
+    for _ in range(ANIOS):
+        hay = rng.random() < E["params"]["p"]
+        trimestre = 1 + int(rng.random() * 4)
+        res.append(trimestre if hay else 0)   # 0 = sin sismo; 1 a 4 = trimestre del sismo
+    return res
 
 
 def flujos(eleccion, sismos):
-    """Año por año. El cupón se paga al final de cada año sobre lo que sigue invertido:
-    si tiembla durante el año, ese año ya no se cobra (o solo sobre lo que quedó)."""
+    """Año por año. sismos[a] = 0 si no tembló, o el trimestre (1 a 4) del sismo.
+    Trimestral: el año del sismo se cobran los trimestres anteriores al sismo.
+    Anual: el cupón se paga al final del año, así que el año del sismo ya no se cobra."""
     pr = E["params"]
     inv = pr["inversion"]
     principal = inv
@@ -111,11 +118,13 @@ def flujos(eleccion, sismos):
             cupon, perdido = inv * pr["tasa_normal"], 0.0
         else:
             vivo = principal > 0
+            antes = principal
             perdido = min(principal, pr["severidad"] * inv) if sismos[a] else 0.0
             principal -= perdido
-            cupon = principal * cupon_cat()
+            frac = (sismos[a] - 1) / 4 if (sismos[a] and pr["trimestral"]) else 0.0
+            cupon = cupon_cat() * (antes * frac + principal * (1 - frac))
         disparo = eleccion == "cat" and sismos[a] and vivo
-        filas.append({"anio": a + 1, "sismo": disparo, "evento": sismos[a],
+        filas.append({"anio": a + 1, "sismo": disparo, "evento": bool(sismos[a]), "trimestre": sismos[a],
                       "cupon": cupon, "perdido": perdido, "principal": principal})
     return filas
 
@@ -125,16 +134,23 @@ def total_recibido(filas):
 
 
 def esperado(eleccion):
-    """Lo que se recibe en promedio: recorre los 16 caminos posibles de 4 años."""
+    """Lo que se recibe en promedio: recorre todos los caminos posibles de 4 años
+    (cada año: sin sismo, o sismo en el trimestre 1, 2, 3 o 4)."""
+    import itertools
     p = E["params"]["p"]
     tot = 0.0
-    for k in range(2 ** ANIOS):
-        sismos = [bool(k >> a & 1) for a in range(ANIOS)]
+    for sismos in itertools.product(range(5), repeat=ANIOS):
         prob = 1.0
         for x in sismos:
-            prob *= p if x else 1 - p
-        tot += prob * total_recibido(flujos(eleccion, sismos))
+            prob *= (p / 4) if x else (1 - p)
+        tot += prob * total_recibido(flujos(eleccion, list(sismos)))
     return tot
+
+
+def regla_cupon():
+    if E["params"]["trimestral"]:
+        return "El cupón se paga cada trimestre: el año del sismo solo cobras los trimestres antes del sismo."
+    return "El cupón se paga al final de cada año, solo si el bono sigue vivo: el año del sismo ya no se cobra."
 
 
 def prob_4_anios():
@@ -202,11 +218,12 @@ def vista_celular():
 | Probabilidad de que se dispare en {ANIOS} años | {prob_4_anios():.1%} |
 | Si se dispara | Pierdes el {pr['severidad']:.0%} de lo invertido y dejas de cobrar |
 | Cupón | {c:.1%} anual = {pr['tasa_normal']:.0%} (tasa libre de riesgo) + {c - pr['tasa_normal']:.1%} (pago por el riesgo) |
-| Cuándo se cobra el cupón | Al final de cada año, solo si el bono sigue vivo. Si tiembla ese año, ya no lo cobras |
+| Cuándo se cobra el cupón | {regla_cupon()} |
 | Lo que recibirías en promedio | Cat bond {dinero(esperado('cat')).replace('$', chr(92) + '$')} · Bono normal {dinero(esperado('normal')).replace('$', chr(92) + '$')} |
 """)
-            st.caption("Simplificaciones: aquí el cupón se paga una vez al año; en el bono real se paga cada 3 meses y cobras hasta el trimestre del sismo. "
-                       "También suponemos que si se dispara se pierde todo; el bono real puede pagar por partes. "
+            st.caption(("Como en el bono real, el cupón se paga cada 3 meses. " if pr["trimestral"] else
+                        "Simplificación: aquí el cupón se paga una vez al año; en el bono real se paga cada 3 meses y cobras hasta el trimestre del sismo. ") +
+                       "Suponemos que si se dispara se pierde todo; el bono real puede pagar por partes. "
                        "Así ya pasó en 2017: el sismo de Chiapas (8.1) activó el bono de entonces y México cobró 150 millones de dólares. "
                        "Fuentes: Banco Mundial y Artemis (abril 2024).")
         with st.form("voto"):
@@ -239,7 +256,10 @@ def tabla_anios(v, filas, anio, eleccion=None):
         if eleccion == "normal":
             txt = "<span class='ok'>Hubo sismo, no te afecta</span>" if f["evento"] else "<span class='ok'>Sin sismo</span>"
         elif f["sismo"]:
-            txt = f"<span class='mal'>Sismo: se disparó, pierdes {dinero(f['perdido'])}</span>"
+            cuando = f" en el trimestre {f['trimestre']}" if E["params"]["trimestral"] else ""
+            txt = f"<span class='mal'>Sismo{cuando}: se disparó, pierdes {dinero(f['perdido'])}</span>"
+            if E["params"]["trimestral"]:
+                txt += f"<br><span style='color:#5B6672;font-size:0.82rem'>Cobraste {f['trimestre'] - 1} de 4 trimestres</span>"
         elif f["principal"] == 0:
             txt = "<span style='color:#8A939C'>Ya no cobras</span>"
         else:
@@ -248,7 +268,7 @@ def tabla_anios(v, filas, anio, eleccion=None):
                  f"<td class='n'>+{dinero(f['cupon'])}</td><td class='n'>{dinero(f['principal'])}</td></tr>")
     html += "</table>"
     if eleccion == "cat":
-        html += "<p style='margin:8px 0 0;font-size:0.8rem;color:#5B6672'>El cupón se paga al final de cada año, solo si el bono sigue vivo: el año del sismo ya no se cobra.</p>"
+        html += f"<p style='margin:8px 0 0;font-size:0.8rem;color:#5B6672'>{regla_cupon()}</p>"
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
 
@@ -376,6 +396,9 @@ def controles():
             pr["tasa_normal"] = st.number_input("Tasa del bono normal", 0.0, 1.0, pr["tasa_normal"], 0.001, format="%.4f")
             pr["severidad"] = st.number_input("% del principal que se pierde", 0.0, 1.0, pr["severidad"], 0.25)
             pr["m"] = st.number_input("Múltiplo de riesgo (m)", 0.5, 5.0, pr["m"], 0.05, format="%.2f")
+            pagos = st.radio("Pagos del cupón", ["Trimestrales", "Anuales"], index=0 if pr["trimestral"] else 1,
+                             horizontal=True, help="Trimestrales: como el bono real. Anuales: más simple.")
+            pr["trimestral"] = pagos == "Trimestrales"
             st.caption(f"Cupón del cat bond = {pr['tasa_normal']:.2%} + {pr['p']:.2%} × {pr['severidad']:.0%} × {pr['m']:.2f} = **{cupon_cat():.2%}**")
         if st.button("Reiniciar todo (borra votos)", use_container_width=True):
             with E["lock"]:
@@ -526,7 +549,7 @@ def pantalla():
         z.markdown(f"<div class='label'>Si todos eligieran cat bond</div><div class='metric'>{hit_all} de {n}</div>"
                    f"<p>habrían perdido su dinero. En teoría: {teoria:.0%}, o {teoria * n:.1f} de {n}.</p>",
                    unsafe_allow_html=True)
-        st.caption(f"Cada persona invirtió {dinero(inv)}. El cupón se paga al final de cada año solo si el bono sigue vivo; el año del sismo ya no se cobra.")
+        st.caption(f"Cada persona invirtió {dinero(inv)}. {regla_cupon()}")
 
 
 def vista_pantalla():
