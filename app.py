@@ -15,8 +15,6 @@ import random
 import threading
 import uuid
 
-import altair as alt
-import pandas as pd
 import qrcode
 import streamlit as st
 
@@ -176,43 +174,51 @@ def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None):
 
 
 def grafica_totales(filas_personas):
-    """Una barra por persona con lo que recibió en total, y líneas en lo invertido y en el bono normal.
-    filas_personas: lista de (nombre, eleccion, filas)."""
-    pr = E["params"]
-    inv = pr["inversion"]
-    normal = inv * (1 + ANIOS * pr["tasa_normal"])
-    datos = []
-    for i, (nombre, eleccion, filas) in enumerate(filas_personas):
+    """¿Cómo les fue? Tres renglones (cat bond sin sismo, bono normal, cat bond con sismo),
+    un punto por persona. Aguanta 40 o 100 personas sin amontonarse."""
+    inv = E["params"]["inversion"]
+    grupos = {"intacto": [], "normal": [], "disparado": []}
+    for nombre, eleccion, filas in filas_personas:
+        tot = total_recibido(filas)
         if eleccion == "normal":
-            grupo = "Bono normal"
+            grupos["normal"].append((nombre, tot))
         elif any(f["sismo"] for f in filas):
-            grupo = "Cat bond disparado"
+            grupos["disparado"].append((nombre, tot))
         else:
-            grupo = "Cat bond intacto"
-        datos.append({"id": f"{nombre}#{i}", "Nombre": nombre, "Total": round(total_recibido(filas)), "Grupo": grupo})
-    if not datos:
+            grupos["intacto"].append((nombre, tot))
+    if not filas_personas:
         return
-    df = pd.DataFrame(datos).sort_values("Total", ascending=False)
-    orden = list(df["id"])
-    colores = alt.Scale(domain=["Cat bond intacto", "Cat bond disparado", "Bono normal"],
-                        range=["#3C8D5A", "#B23A2B", "#2E5E8C"])
-    barras = alt.Chart(df).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-        x=alt.X("id:N", sort=orden, title=None,
-                axis=alt.Axis(labelExpr="split(datum.value, '#')[0]", labelAngle=-45, labelFontSize=12)),
-        y=alt.Y("Total:Q", title="Recibió en total ($)", axis=alt.Axis(format="$,.0f")),
-        color=alt.Color("Grupo:N", scale=colores, legend=alt.Legend(orient="top", title=None, labelFontSize=13)),
-        tooltip=["Nombre", alt.Tooltip("Total:Q", format="$,.0f"), "Grupo"])
-    lineas = pd.DataFrame([{"y": inv, "txt": f"Invirtieron {dinero(inv)}", "c": "#5B6672"},
-                           {"y": normal, "txt": f"Bono normal {dinero(normal)}", "c": "#2E5E8C"}])
-    reglas = alt.Chart(lineas).mark_rule(strokeDash=[6, 4], strokeWidth=2).encode(
-        y="y:Q", color=alt.Color("c:N", scale=None, legend=None))
-    st.markdown("<div class='label' style='margin-top:14px'>Lo que recibió cada quien</div>"
-                f"<div style='font-size:0.9rem;display:flex;gap:18px;flex-wrap:wrap'>"
-                f"<span><span style='display:inline-block;width:26px;border-top:2px dashed #2E5E8C;vertical-align:middle'></span> "
-                f"Lo que da el bono normal ({dinero(normal)})</span>"
-                f"<span><span style='display:inline-block;width:26px;border-top:2px dashed #5B6672;vertical-align:middle'></span> "
-                f"Lo que invirtieron ({dinero(inv)})</span></div>", unsafe_allow_html=True)
-    st.altair_chart((barras + reglas).properties(height=300), use_container_width=True)
+
+    def rango(lst):
+        lo, hi = min(t for _, t in lst), max(t for _, t in lst)
+        return dinero(lo) if round(lo) == round(hi) else f"entre {dinero(lo)} y {dinero(hi)}"
+
+    def resultado(lst):
+        lo, hi = min(t for _, t in lst) - inv, max(t for _, t in lst) - inv
+        if hi < 0:
+            return f"perdieron {dinero(-hi)}" if round(lo) == round(hi) else f"perdieron entre {dinero(-hi)} y {dinero(-lo)}"
+        return f"ganaron {dinero(lo)}" if round(lo) == round(hi) else f"ganaron entre {dinero(lo)} y {dinero(hi)}"
+
+    renglones = [("intacto", "Cat bond sin sismo", "#3C8D5A"),
+                 ("normal", "Bono normal", "#2E5E8C"),
+                 ("disparado", "Cat bond con sismo", "#B23A2B")]
+    html = "<div class='card'><div class='label' style='margin-bottom:6px'>¿Cómo les fue?</div>"
+    for clave, titulo, color in renglones:
+        lst = grupos[clave]
+        n = len(lst)
+        if n:
+            detalle = f"Recibieron {rango(lst)}: <b style='color:{color}'>{resultado(lst)}</b>"
+        else:
+            detalle = "<span style='color:#8A939C'>Nadie</span>"
+        puntos = "".join(f"<span title='{nm}: {dinero(t)}' style='display:inline-block;width:16px;height:16px;"
+                         f"border-radius:50%;background:{color};margin:2px'></span>" for nm, t in lst)
+        html += (f"<div style='display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid #EEE7DC'>"
+                 f"<div style='font-family:Space Grotesk,sans-serif;font-size:2rem;font-weight:700;color:{color};min-width:48px;text-align:right'>{n}</div>"
+                 f"<div style='flex:1'><div style='font-weight:600'>{titulo}</div>"
+                 f"<div style='font-size:0.9rem;color:#5B6672;margin:2px 0 4px'>{detalle}</div>"
+                 f"<div style='line-height:0'>{puntos}</div></div></div>")
+    html += f"<p style='margin:8px 0 0;font-size:0.8rem;color:#5B6672'>Un punto por persona. Todos invirtieron {dinero(inv)}.</p></div>"
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def regla_cupon():
