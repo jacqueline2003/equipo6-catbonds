@@ -476,7 +476,7 @@ def pantalla_stand():
         a, b, c = st.columns(3)
         a.markdown(f"<div class='label'>Han jugado</div><div class='metric'>{n}</div>", unsafe_allow_html=True)
         b.markdown(f"<div class='label'>Eligieron cat bond</div><div class='metric' style='color:#C8553D'>{n_cat}</div>", unsafe_allow_html=True)
-        c.markdown(f"<div class='label'>Cat bonds disparados</div><div class='metric' style='color:#B23A2B'>{golpeados}</div>", unsafe_allow_html=True)
+        c.markdown(f"<div class='label'>Eligieron bono normal</div><div class='metric' style='color:#2E5E8C'>{n - n_cat}</div>", unsafe_allow_html=True)
         x, y = st.columns(2)
         if cat:
             x.markdown(f"<div class='label'>Promedio cat bond</div><div class='metric' style='color:#C8553D'>{dinero(sum(cat)/len(cat))}</div>", unsafe_allow_html=True)
@@ -545,9 +545,9 @@ def pantalla():
     titulo = "Antes del primer año" if anio == 0 else f"Año {anio} de {ANIOS}"
     st.markdown(f"# {titulo}")
     a, b, c = st.columns(3)
-    a.markdown(f"<div class='label'>Inversionistas</div><div class='metric'>{n}</div>", unsafe_allow_html=True)
-    b.markdown(f"<div class='label'>Con cat bond</div><div class='metric' style='color:#C8553D'>{n_cat}</div>", unsafe_allow_html=True)
-    c.markdown(f"<div class='label'>Cat bonds disparados</div><div class='metric' style='color:#B23A2B'>{golpeados}</div>", unsafe_allow_html=True)
+    a.markdown(f"<div class='label'>Han jugado</div><div class='metric'>{n}</div>", unsafe_allow_html=True)
+    b.markdown(f"<div class='label'>Eligieron cat bond</div><div class='metric' style='color:#C8553D'>{n_cat}</div>", unsafe_allow_html=True)
+    c.markdown(f"<div class='label'>Eligieron bono normal</div><div class='metric' style='color:#2E5E8C'>{n - n_cat}</div>", unsafe_allow_html=True)
 
     st.markdown("<span class='tag' style='background:#3C8D5A;color:#fff'>Cat bond intacto</span> &nbsp; "
                 "<span class='tag' style='background:#B23A2B;color:#fff'>Cat bond disparado</span> &nbsp; "
