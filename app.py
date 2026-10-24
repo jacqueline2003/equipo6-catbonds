@@ -162,9 +162,10 @@ def comparar_html(hits, n, teoria):
     return ("<div class='card'><b>¿A cuántos les tocó sismo en sus 4 años? (contando a todos)</b>"
             + barra(f"En este grupo ({hits} de {n})", real, "#B23A2B", f"{real:.0%}")
             + barra(f"Lo esperado (como {teoria * n:.0f} de {n})", teoria, "#9AA3AC", f"{teoria:.0%}")
-            + "<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>Cuenta a todos, también a los del bono normal "
-              "(a ellos el sismo no les afecta). Con poca gente el número brinca mucho; entre más personas jueguen, "
-              "más se acerca a lo esperado.</p></div>")
+            + f"<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>Lo esperado ({teoria:.0%}) es la probabilidad "
+              f"de que tiemble al menos una vez en {ANIOS} años, con {E['params']['p']:.2%} por año. "
+              f"Cuenta a todos, también a los del bono normal (a ellos el sismo no les afecta). Con poca gente el número "
+              f"brinca mucho; entre más personas jueguen, más se acerca al {teoria:.0%}.</p></div>")
 
 
 def regla_cupon():
