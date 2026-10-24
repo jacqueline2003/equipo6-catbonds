@@ -100,7 +100,8 @@ def sismos_de(pid):
 
 
 def flujos(eleccion, sismos):
-    """Año por año. El sismo cuenta al final del año: ese año sí se cobra el cupón."""
+    """Año por año. El cupón se paga al final de cada año sobre lo que sigue invertido:
+    si tiembla durante el año, ese año ya no se cobra (o solo sobre lo que quedó)."""
     pr = E["params"]
     inv = pr["inversion"]
     principal = inv
@@ -109,10 +110,12 @@ def flujos(eleccion, sismos):
         if eleccion == "normal":
             cupon, perdido = inv * pr["tasa_normal"], 0.0
         else:
-            cupon = principal * cupon_cat()
+            vivo = principal > 0
             perdido = min(principal, pr["severidad"] * inv) if sismos[a] else 0.0
             principal -= perdido
-        filas.append({"anio": a + 1, "sismo": sismos[a] and eleccion == "cat", "evento": sismos[a],
+            cupon = principal * cupon_cat()
+        disparo = eleccion == "cat" and sismos[a] and vivo
+        filas.append({"anio": a + 1, "sismo": disparo, "evento": sismos[a],
                       "cupon": cupon, "perdido": perdido, "principal": principal})
     return filas
 
@@ -199,7 +202,7 @@ def vista_celular():
 | Probabilidad de que se dispare en {ANIOS} años | {prob_4_anios():.1%} |
 | Si se dispara | Pierdes el {pr['severidad']:.0%} de lo invertido y dejas de cobrar |
 | Cupón | {c:.1%} anual = {pr['tasa_normal']:.0%} (tasa libre de riesgo) + {c - pr['tasa_normal']:.1%} (pago por el riesgo) |
-| Cuándo cuenta el sismo | Al final del año: ese año sí cobras el cupón |
+| Cuándo se cobra el cupón | Al final de cada año, solo si el bono sigue vivo. Si tiembla ese año, ya no lo cobras |
 | Lo que recibirías en promedio | Cat bond {dinero(esperado('cat')).replace('$', chr(92) + '$')} · Bono normal {dinero(esperado('normal')).replace('$', chr(92) + '$')} |
 """)
             st.caption("Simplificación: suponemos que si se dispara se pierde todo; el bono real puede pagar por partes. "
@@ -244,7 +247,7 @@ def tabla_anios(v, filas, anio, eleccion=None):
                  f"<td class='n'>+{dinero(f['cupon'])}</td><td class='n'>{dinero(f['principal'])}</td></tr>")
     html += "</table>"
     if eleccion == "cat":
-        html += "<p style='margin:8px 0 0;font-size:0.8rem;color:#5B6672'>El sismo cuenta al final del año: ese año sí cobras el cupón.</p>"
+        html += "<p style='margin:8px 0 0;font-size:0.8rem;color:#5B6672'>El cupón se paga al final de cada año, solo si el bono sigue vivo: el año del sismo ya no se cobra.</p>"
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
 
@@ -522,7 +525,7 @@ def pantalla():
         z.markdown(f"<div class='label'>Si todos eligieran cat bond</div><div class='metric'>{hit_all} de {n}</div>"
                    f"<p>habrían perdido su dinero. En teoría: {teoria:.0%}, o {teoria * n:.1f} de {n}.</p>",
                    unsafe_allow_html=True)
-        st.caption(f"Cada persona invirtió {dinero(inv)}. El sismo se cuenta al final del año, así que ese año sí se cobra el cupón.")
+        st.caption(f"Cada persona invirtió {dinero(inv)}. El cupón se paga al final de cada año solo si el bono sigue vivo; el año del sismo ya no se cobra.")
 
 
 def vista_pantalla():
