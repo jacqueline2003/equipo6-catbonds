@@ -82,6 +82,10 @@ def estado():
     }
 
 E = estado()
+# Si la app se actualiza sin reiniciarse, el estado viejo puede no tener los datos nuevos:
+for _k, _v in DEFAULTS.items():
+    E["params"].setdefault(_k, _v)
+E.setdefault("modo", "salon")
 
 
 def cupon_cat():
