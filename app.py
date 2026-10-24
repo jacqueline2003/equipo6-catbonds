@@ -205,7 +205,8 @@ def vista_celular():
 | Cuándo se cobra el cupón | Al final de cada año, solo si el bono sigue vivo. Si tiembla ese año, ya no lo cobras |
 | Lo que recibirías en promedio | Cat bond {dinero(esperado('cat')).replace('$', chr(92) + '$')} · Bono normal {dinero(esperado('normal')).replace('$', chr(92) + '$')} |
 """)
-            st.caption("Simplificación: suponemos que si se dispara se pierde todo; el bono real puede pagar por partes. "
+            st.caption("Simplificaciones: aquí el cupón se paga una vez al año; en el bono real se paga cada 3 meses y cobras hasta el trimestre del sismo. "
+                       "También suponemos que si se dispara se pierde todo; el bono real puede pagar por partes. "
                        "Así ya pasó en 2017: el sismo de Chiapas (8.1) activó el bono de entonces y México cobró 150 millones de dólares. "
                        "Fuentes: Banco Mundial y Artemis (abril 2024).")
         with st.form("voto"):
