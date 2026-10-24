@@ -46,6 +46,13 @@ h1, h2, h3, .big { font-family: 'Space Grotesk', sans-serif !important; letter-s
 .anio { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #EEE7DC; }
 .anio:last-child { border-bottom:none; }
 .ok { color:#2F7D4F; font-weight:600; }
+table.flujo { width:100%; border-collapse:collapse; font-size:0.92rem; border:none !important; margin:0 !important; }
+table.flujo tr, table.flujo td, table.flujo th { border-left:none !important; border-right:none !important; border-top:none !important; background:transparent !important; }
+table.flujo th { text-align:left; font-weight:600; color:#5B6672; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; padding:6px 4px; border-bottom:1px solid #E2DACD; }
+table.flujo td { padding:8px 4px; border-bottom:1px solid #EEE7DC; vertical-align:top; }
+table.flujo td.n, table.flujo th.n { text-align:right; white-space:nowrap; }
+.desglose div { display:flex; justify-content:space-between; padding:4px 0; }
+.desglose .tot { border-top:1px solid #E2DACD; margin-top:4px; padding-top:8px; font-weight:700; }
 .mal { color:#B23A2B; font-weight:700; }
 .persona { border-radius:10px; padding:8px 10px; font-weight:600; font-size:0.95rem; color:#fff; text-align:center;
            overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
@@ -114,6 +121,23 @@ def total_recibido(filas):
     return sum(f["cupon"] for f in filas) + filas[-1]["principal"]
 
 
+def esperado(eleccion):
+    """Lo que se recibe en promedio: recorre los 16 caminos posibles de 4 años."""
+    p = E["params"]["p"]
+    tot = 0.0
+    for k in range(2 ** ANIOS):
+        sismos = [bool(k >> a & 1) for a in range(ANIOS)]
+        prob = 1.0
+        for x in sismos:
+            prob *= p if x else 1 - p
+        tot += prob * total_recibido(flujos(eleccion, sismos))
+    return tot
+
+
+def prob_4_anios():
+    return 1 - (1 - E["params"]["p"]) ** ANIOS
+
+
 def qr_png(url):
     img = qrcode.make(url, box_size=10, border=2)
     buf = io.BytesIO()
@@ -147,21 +171,40 @@ def vista_celular():
         pr = E["params"]
         st.write(f"Tienes **{dinero(pr['inversion'])}** para invertir durante {ANIOS} años. ¿Dónde los pones?")
         c1, c2 = st.columns(2)
+        inv = pr["inversion"]
+        c = cupon_cat()
         with c1:
             st.markdown(f"""<div class='card'><span class='tag tag-cat'>Cat bond</span>
-            <div class='big' style='font-size:1.8rem;margin:8px 0 2px'>{cupon_cat():.1%} anual</div>
-            <p style='margin:0'>Si no tiembla, ganas mucho. Si hay un sismo muy fuerte en las zonas que cubre el bono, pierdes tu dinero y se va a la reconstrucción.</p></div>""",
+            <div class='big' style='font-size:1.8rem;margin:8px 0 6px'>{c:.1%} anual</div>
+            <div class='anio'><span>Si no tiembla en {ANIOS} años</span><b>recibes {dinero(inv * (1 + ANIOS * c))}</b></div>
+            <div class='anio'><span>Probabilidad de que tiemble en {ANIOS} años</span><b>{prob_4_anios():.0%}</b></div>
+            <div class='anio'><span>Si tiembla</span><b class='mal'>pierdes tus {dinero(inv)}</b></div>
+            <p style='margin:6px 0 0;font-size:0.85rem;color:#5B6672'>Si tiembla te quedas con los cupones que ya cobraste, pero ya no te regresan tu dinero y dejas de cobrar.</p></div>""",
                         unsafe_allow_html=True)
         with c2:
             st.markdown(f"""<div class='card'><span class='tag tag-normal'>Bono normal</span>
-            <div class='big' style='font-size:1.8rem;margin:8px 0 2px'>{pr['tasa_normal']:.1%} anual</div>
-            <p style='margin:0'>Pase lo que pase, cobras tus intereses y al final te regresan tu dinero.</p></div>""",
+            <div class='big' style='font-size:1.8rem;margin:8px 0 6px'>{pr['tasa_normal']:.1%} anual</div>
+            <div class='anio'><span>Pase lo que pase</span><b>recibes {dinero(inv * (1 + ANIOS * pr['tasa_normal']))}</b></div>
+            <div class='anio'><span>Riesgo de perder tu dinero</span><b>ninguno</b></div>
+            <p style='margin:6px 0 0;font-size:0.85rem;color:#5B6672'>Cobras tus intereses cada año y al final te regresan tus {dinero(inv)}.</p></div>""",
                         unsafe_allow_html=True)
-        with st.expander("¿De dónde es este bono?"):
-            st.write("Es del gobierno federal de México, emitido con el Banco Mundial; no es de una sola ciudad. "
-                     "Cubre sismos muy fuertes en zonas definidas del país, sobre todo el sur y la costa del Pacífico, "
-                     "donde ocurren los más grandes. Cada zona tiene su propia magnitud mínima para dispararse. "
-                     "Los números de esta dinámica son del bono vigente, emitido en 2024 y con vencimiento en 2028. \n\nAsí ya pasó en 2017: el sismo de Chiapas (8.1) activó el bono de entonces y México cobró 150 millones de dólares.")
+        with st.expander("Ficha del bono: datos para decidir"):
+            st.markdown(f"""
+| Dato | Valor |
+|---|---|
+| Emisor | Gobierno federal de México, con el Banco Mundial |
+| Bono | El vigente: emitido en 2024, vence en 2028 (clase B, sismo) |
+| Qué lo dispara | Un sismo muy fuerte en las zonas del contrato, sobre todo el sur y la costa del Pacífico. Cada zona tiene su magnitud mínima |
+| Probabilidad de sismo por año | {pr['p']:.2%} |
+| Probabilidad de que se dispare en {ANIOS} años | {prob_4_anios():.1%} |
+| Si se dispara | Pierdes el {pr['severidad']:.0%} de lo invertido y dejas de cobrar |
+| Cupón | {c:.1%} anual = {pr['tasa_normal']:.0%} (tasa libre de riesgo) + {c - pr['tasa_normal']:.1%} (pago por el riesgo) |
+| Cuándo cuenta el sismo | Al final del año: ese año sí cobras el cupón |
+| Lo que recibirías en promedio | Cat bond {dinero(esperado('cat')).replace('$', chr(92) + '$')} · Bono normal {dinero(esperado('normal')).replace('$', chr(92) + '$')} |
+""")
+            st.caption("Simplificación: suponemos que si se dispara se pierde todo; el bono real puede pagar por partes. "
+                       "Así ya pasó en 2017: el sismo de Chiapas (8.1) activó el bono de entonces y México cobró 150 millones de dólares. "
+                       "Fuentes: Banco Mundial y Artemis (abril 2024).")
         with st.form("voto"):
             nombre = st.text_input("Tu nombre", max_chars=18, placeholder="Ej. Ana")
             eleccion = st.radio("Mi elección", ["Cat bond", "Bono normal"], horizontal=True, index=None)
@@ -184,34 +227,61 @@ def vista_celular():
         seguimiento(pid)
 
 
-def tabla_anios(v, filas, anio):
-    html = "<div class='card'>"
+def tabla_anios(v, filas, anio, eleccion=None):
+    eleccion = eleccion or v["eleccion"]
+    html = ("<div class='card'><table class='flujo'><tr><th>Año</th><th>Qué pasó</th>"
+            "<th class='n'>Cobraste</th><th class='n'>Invertido</th></tr>")
     for f in filas[:anio]:
-        if v["eleccion"] == "normal":
-            txt = ("<span class='ok'>Cobraste tu interés</span> <span style='color:#8A939C'>· hubo sismo, "
-                   "pero a tu bono no le afecta</span>") if f["evento"] else "<span class='ok'>Cobraste tu interés</span>"
+        if eleccion == "normal":
+            txt = "<span class='ok'>Hubo sismo, no te afecta</span>" if f["evento"] else "<span class='ok'>Sin sismo</span>"
         elif f["sismo"]:
-            txt = f"<span class='mal'>Sismo. Se disparó el bono: pierdes {dinero(f['perdido'])}</span>"
-        elif v["eleccion"] == "cat" and f["principal"] == 0:
-            txt = "<span style='color:#8A939C'>Ya no te queda principal</span>"
+            txt = f"<span class='mal'>Sismo: se disparó, pierdes {dinero(f['perdido'])}</span>"
+        elif f["principal"] == 0:
+            txt = "<span style='color:#8A939C'>Ya no cobras</span>"
         else:
             txt = "<span class='ok'>Sin sismo</span>"
-        html += f"<div class='anio'><span><b>Año {f['anio']}</b> · {txt}</span><span>+{dinero(f['cupon'])}</span></div>"
+        html += (f"<tr><td><b>{f['anio']}</b></td><td>{txt}</td>"
+                 f"<td class='n'>+{dinero(f['cupon'])}</td><td class='n'>{dinero(f['principal'])}</td></tr>")
+    html += "</table>"
+    if eleccion == "cat":
+        html += "<p style='margin:8px 0 0;font-size:0.8rem;color:#5B6672'>El sismo cuenta al final del año: ese año sí cobras el cupón.</p>"
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
+
+
+def desglose(filas, inv):
+    cupones = sum(f["cupon"] for f in filas)
+    regreso = filas[-1]["principal"]
+    tot = cupones + regreso
+    neto = tot - inv
+    color = "#2F7D4F" if neto >= 0 else "#B23A2B"
+    palabra = "Ganaste" if neto >= 0 else "Perdiste"
+    return (f"<div class='card desglose'>"
+            f"<div><span>Cupones que cobraste ({ANIOS} años)</span><span>{dinero(cupones)}</span></div>"
+            f"<div><span>+ Lo que te regresan al final</span><span>{dinero(regreso)}</span></div>"
+            f"<div class='tot'><span>= Total que recibiste</span><span>{dinero(tot)}</span></div>"
+            f"<div><span>− Lo que invertiste</span><span>{dinero(inv)}</span></div>"
+            f"<div class='tot' style='color:{color}'><span>= {palabra}</span><span>{dinero(abs(neto))}</span></div>"
+            f"</div>")
 
 
 def resultado_final(v, sismos, filas):
     inv = E["params"]["inversion"]
     tot = total_recibido(filas)
-    otro = "normal" if v["eleccion"] == "cat" else "cat"
-    tot_otro = total_recibido(flujos(otro, sismos))
-    signo = "ganaste" if tot >= inv else "perdiste"
-    st.markdown(f"<div class='label'>Recibiste en total</div><div class='grande'>{dinero(tot)}</div>"
-                f"<p>O sea, {signo} {dinero(abs(tot - inv))} sobre tus {dinero(inv)}.</p>",
+    st.markdown(f"<div class='label'>Tu resultado</div><div class='grande'>{dinero(tot)}</div>"
+                f"<p style='margin:0 0 8px'>es lo que recibiste en total, ya sumando los {ANIOS} años.</p>",
                 unsafe_allow_html=True)
+    st.markdown(desglose(filas, inv), unsafe_allow_html=True)
+
+    otro = "normal" if v["eleccion"] == "cat" else "cat"
+    filas_otro = flujos(otro, sismos)
     nombre_otro = "bono normal" if otro == "normal" else "cat bond"
-    st.caption(f"Con el {nombre_otro} habrías recibido {dinero(tot_otro)}.")
+    tot_otro = total_recibido(filas_otro)
+    with st.expander(f"¿Y si hubieras elegido el {nombre_otro}? Habrías recibido {dinero(tot_otro)}",
+                     expanded=(otro == "cat")):
+        st.caption("Mismos años y mismos sismos que te tocaron a ti.")
+        tabla_anios(v, filas_otro, ANIOS, eleccion=otro)
+        st.markdown(desglose(filas_otro, inv), unsafe_allow_html=True)
 
 
 def seguimiento_stand(pid):
