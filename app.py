@@ -151,6 +151,22 @@ def esperado(eleccion):
     return tot
 
 
+def comparar_html(hits, n, teoria):
+    """Recuadro: cuántos tuvieron sismo en este grupo contra lo esperado, con dos barras."""
+    real = hits / n if n else 0
+    def barra(etiqueta, valor, color, texto):
+        return (f"<div style='margin:6px 0'><div style='display:flex;justify-content:space-between;font-size:0.9rem'>"
+                f"<span>{etiqueta}</span><b>{texto}</b></div>"
+                f"<div style='background:#EEE7DC;border-radius:6px;height:12px;margin-top:3px'>"
+                f"<div style='width:{min(valor, 1) * 100:.0f}%;background:{color};height:12px;border-radius:6px'></div></div></div>")
+    return ("<div class='card'><b>¿A cuántos les tocó sismo en sus 4 años? (contando a todos)</b>"
+            + barra(f"En este grupo ({hits} de {n})", real, "#B23A2B", f"{real:.0%}")
+            + barra(f"Lo esperado (como {teoria * n:.0f} de {n})", teoria, "#9AA3AC", f"{teoria:.0%}")
+            + "<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>Cuenta a todos, también a los del bono normal "
+              "(a ellos el sismo no les afecta). Con poca gente el número brinca mucho; entre más personas jueguen, "
+              "más se acerca a lo esperado.</p></div>")
+
+
 def regla_cupon():
     if E["params"]["trimestral"]:
         return "El cupón se paga cada trimestre: el año del sismo solo cobras los trimestres antes del sismo."
@@ -453,7 +469,7 @@ def pantalla_stand():
         a, b, c = st.columns(3)
         a.markdown(f"<div class='label'>Han jugado</div><div class='metric'>{n}</div>", unsafe_allow_html=True)
         b.markdown(f"<div class='label'>Eligieron cat bond</div><div class='metric' style='color:#C8553D'>{n_cat}</div>", unsafe_allow_html=True)
-        c.markdown(f"<div class='label'>Les tocó el sismo</div><div class='metric' style='color:#B23A2B'>{golpeados}</div>", unsafe_allow_html=True)
+        c.markdown(f"<div class='label'>Cat bonds disparados</div><div class='metric' style='color:#B23A2B'>{golpeados}</div>", unsafe_allow_html=True)
         x, y = st.columns(2)
         if cat:
             x.markdown(f"<div class='label'>Promedio cat bond</div><div class='metric' style='color:#C8553D'>{dinero(sum(cat)/len(cat))}</div>", unsafe_allow_html=True)
@@ -462,9 +478,7 @@ def pantalla_stand():
         if fin:
             hit_all = sum(any(r["sismos"]) for r in fin)
             teoria = 1 - (1 - pr["p"]) ** ANIOS
-            st.markdown(f"<div class='card'>Si los {len(fin)} que ya terminaron hubieran elegido cat bond, "
-                        f"<b>{hit_all / len(fin):.0%}</b> habría perdido su dinero. La teoría dice <b>{teoria:.0%}</b>. "
-                        f"Entre más gente juega, más se acercan.</div>", unsafe_allow_html=True)
+            st.markdown(comparar_html(hit_all, len(fin), teoria), unsafe_allow_html=True)
 
     if res:
         st.markdown("<div class='label' style='margin-top:10px'>Últimos en jugar</div>", unsafe_allow_html=True)
@@ -550,9 +564,7 @@ def pantalla():
                        f"<p>Todos recibieron lo mismo</p>", unsafe_allow_html=True)
         hit_all = sum(any(r["sismos"]) for r in res.values())
         teoria = 1 - (1 - pr["p"]) ** ANIOS
-        z.markdown(f"<div class='label'>Si todos eligieran cat bond</div><div class='metric'>{hit_all} de {n}</div>"
-                   f"<p>habrían perdido su dinero. En teoría: {teoria:.0%}, o {teoria * n:.1f} de {n}.</p>",
-                   unsafe_allow_html=True)
+        z.markdown(comparar_html(hit_all, n, teoria), unsafe_allow_html=True)
         st.caption(f"Cada persona invirtió {dinero(inv)}. {regla_cupon()}")
 
 
