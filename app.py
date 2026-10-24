@@ -164,7 +164,7 @@ def comparar_html(hits, n, teoria):
             + barra(f"Lo esperado (como {teoria * n:.0f} de {n})", teoria, "#9AA3AC", f"{teoria:.0%}")
             + f"<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>Lo esperado ({teoria:.0%}) es la probabilidad "
               f"de que tiemble al menos una vez en {ANIOS} años, con {E['params']['p']:.2%} por año. "
-              f"Cuenta a todos, también a los del bono normal (a ellos el sismo no les afecta). Con poca gente el número "
+              f"El sismo pasa o no sin importar qué bono elegiste; por eso contamos a todos, aunque a los del bono normal no les afecte. Con poca gente el número "
               f"brinca mucho; entre más personas jueguen, más se acerca al {teoria:.0%}.</p></div>")
 
 
