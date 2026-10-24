@@ -57,6 +57,8 @@ table.flujo td.n, table.flujo th.n { text-align:right; white-space:nowrap; }
 .mal { color:#B23A2B; font-weight:700; }
 .persona { border-radius:10px; padding:8px 10px; font-weight:600; font-size:0.95rem; color:#fff; text-align:center;
            overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.resultados { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+@media (max-width: 640px) { .resultados { grid-template-columns:1fr; } }
 .rejilla { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; }
 @media (max-width: 640px) { .rejilla { grid-template-columns:repeat(3, 1fr); gap:6px; } .persona { font-size:0.8rem; padding:6px 4px; } }
 .p-jugando { background:#9AA3AC; } .p-cat { background:#3C8D5A; } .p-hit { background:#B23A2B; } .p-normal { background:#2E5E8C; } .p-normal-sismo { background:#2E5E8C; box-shadow: inset 0 0 0 3px #E8A33D; }
@@ -174,8 +176,7 @@ def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None):
 
 
 def grafica_totales(filas_personas):
-    """¿Cómo les fue? Tres renglones (cat bond sin sismo, bono normal, cat bond con sismo),
-    un punto por persona. Aguanta 40 o 100 personas sin amontonarse."""
+    """¿Cómo les fue? Tres tarjetas: cat bond sin sismo, bono normal y cat bond con sismo."""
     inv = E["params"]["inversion"]
     grupos = {"intacto": [], "normal": [], "disparado": []}
     for nombre, eleccion, filas in filas_personas:
@@ -199,25 +200,24 @@ def grafica_totales(filas_personas):
             return f"perdieron {dinero(-hi)}" if round(lo) == round(hi) else f"perdieron entre {dinero(-hi)} y {dinero(-lo)}"
         return f"ganaron {dinero(lo)}" if round(lo) == round(hi) else f"ganaron entre {dinero(lo)} y {dinero(hi)}"
 
-    renglones = [("intacto", "Cat bond sin sismo", "#3C8D5A"),
-                 ("normal", "Bono normal", "#2E5E8C"),
-                 ("disparado", "Cat bond con sismo", "#B23A2B")]
-    html = "<div class='card'><div class='label' style='margin-bottom:6px'>¿Cómo les fue?</div>"
-    for clave, titulo, color in renglones:
+    tarjetas = [("intacto", "Cat bond sin sismo", "#3C8D5A"),
+                ("normal", "Bono normal", "#2E5E8C"),
+                ("disparado", "Cat bond con sismo", "#B23A2B")]
+    html = "<div class='label' style='margin-top:28px;margin-bottom:8px'>¿Cómo les fue?</div><div class='resultados'>"
+    for clave, titulo, color in tarjetas:
         lst = grupos[clave]
         n = len(lst)
         if n:
-            detalle = f"Recibieron {rango(lst)}: <b style='color:{color}'>{resultado(lst)}</b>"
+            linea1 = f"Recibieron {rango(lst)}"
+            linea2 = f"<b style='color:{color}'>{resultado(lst).capitalize()}</b>"
         else:
-            detalle = "<span style='color:#8A939C'>Nadie</span>"
-        puntos = "".join(f"<span title='{nm}: {dinero(t)}' style='display:inline-block;width:16px;height:16px;"
-                         f"border-radius:50%;background:{color};margin:2px'></span>" for nm, t in lst)
-        html += (f"<div style='display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid #EEE7DC'>"
-                 f"<div style='font-family:Space Grotesk,sans-serif;font-size:2rem;font-weight:700;color:{color};min-width:48px;text-align:right'>{n}</div>"
-                 f"<div style='flex:1'><div style='font-weight:600'>{titulo}</div>"
-                 f"<div style='font-size:0.9rem;color:#5B6672;margin:2px 0 4px'>{detalle}</div>"
-                 f"<div style='line-height:0'>{puntos}</div></div></div>")
-    html += f"<p style='margin:8px 0 0;font-size:0.8rem;color:#5B6672'>Un punto por persona. Todos invirtieron {dinero(inv)}.</p></div>"
+            linea1, linea2 = "Nadie", ""
+        html += (f"<div class='card' style='border-top:5px solid {color};margin:0'>"
+                 f"<div style='font-weight:600'>{titulo}</div>"
+                 f"<div class='metric' style='color:{color};margin:2px 0'>{n} <span style='font-size:1rem;font-weight:500;color:#5B6672'>"
+                 f"{'persona' if n == 1 else 'personas'}</span></div>"
+                 f"<div style='font-size:0.92rem;color:#5B6672'>{linea1}</div><div style='font-size:0.95rem'>{linea2}</div></div>")
+    html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
 
 
