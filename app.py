@@ -15,6 +15,8 @@ import random
 import threading
 import uuid
 
+import altair as alt
+import pandas as pd
 import qrcode
 import streamlit as st
 
@@ -171,6 +173,46 @@ def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None):
             + f"<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>{teoria:.0%} = probabilidad de que tiemble al menos una vez en {ANIOS} años. "
               f"Contamos a todos porque el sismo no depende del bono que elegiste. "
               f"Con más gente, el grupo se acerca al {teoria:.0%}.</p></div>")
+
+
+def grafica_totales(filas_personas):
+    """Una barra por persona con lo que recibió en total, y líneas en lo invertido y en el bono normal.
+    filas_personas: lista de (nombre, eleccion, filas)."""
+    pr = E["params"]
+    inv = pr["inversion"]
+    normal = inv * (1 + ANIOS * pr["tasa_normal"])
+    datos = []
+    for i, (nombre, eleccion, filas) in enumerate(filas_personas):
+        if eleccion == "normal":
+            grupo = "Bono normal"
+        elif any(f["sismo"] for f in filas):
+            grupo = "Cat bond disparado"
+        else:
+            grupo = "Cat bond intacto"
+        datos.append({"id": f"{nombre}#{i}", "Nombre": nombre, "Total": round(total_recibido(filas)), "Grupo": grupo})
+    if not datos:
+        return
+    df = pd.DataFrame(datos).sort_values("Total", ascending=False)
+    orden = list(df["id"])
+    colores = alt.Scale(domain=["Cat bond intacto", "Cat bond disparado", "Bono normal"],
+                        range=["#3C8D5A", "#B23A2B", "#2E5E8C"])
+    barras = alt.Chart(df).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+        x=alt.X("id:N", sort=orden, title=None,
+                axis=alt.Axis(labelExpr="split(datum.value, '#')[0]", labelAngle=-45, labelFontSize=12)),
+        y=alt.Y("Total:Q", title="Recibió en total ($)", axis=alt.Axis(format="$,.0f")),
+        color=alt.Color("Grupo:N", scale=colores, legend=alt.Legend(orient="top", title=None, labelFontSize=13)),
+        tooltip=["Nombre", alt.Tooltip("Total:Q", format="$,.0f"), "Grupo"])
+    lineas = pd.DataFrame([{"y": inv, "txt": f"Invirtieron {dinero(inv)}", "c": "#5B6672"},
+                           {"y": normal, "txt": f"Bono normal {dinero(normal)}", "c": "#2E5E8C"}])
+    reglas = alt.Chart(lineas).mark_rule(strokeDash=[6, 4], strokeWidth=2).encode(
+        y="y:Q", color=alt.Color("c:N", scale=None, legend=None))
+    st.markdown("<div class='label' style='margin-top:14px'>Lo que recibió cada quien</div>"
+                f"<div style='font-size:0.9rem;display:flex;gap:18px;flex-wrap:wrap'>"
+                f"<span><span style='display:inline-block;width:26px;border-top:2px dashed #2E5E8C;vertical-align:middle'></span> "
+                f"Lo que da el bono normal ({dinero(normal)})</span>"
+                f"<span><span style='display:inline-block;width:26px;border-top:2px dashed #5B6672;vertical-align:middle'></span> "
+                f"Lo que invirtieron ({dinero(inv)})</span></div>", unsafe_allow_html=True)
+    st.altair_chart((barras + reglas).properties(height=300), use_container_width=True)
 
 
 def regla_cupon():
@@ -498,6 +540,8 @@ def pantalla_stand():
         st.write("")
         recientes = res[-18:][::-1]
         st.markdown(f"<div class='rejilla'>{''.join(chip(r) for r in recientes)}</div>", unsafe_allow_html=True)
+    if fin:
+        grafica_totales([(r["nombre"], r["eleccion"], r["filas"]) for r in fin[-40:]])
 
 
 @st.fragment(run_every=2)
@@ -577,6 +621,7 @@ def pantalla():
         hc = sum(any(r["sismos"]) for r in res.values() if r["eleccion"] == "cat")
         teoria = 1 - (1 - pr["p"]) ** ANIOS
         st.markdown(comparar_html(hit_all, n, teoria, hc, hit_all - hc), unsafe_allow_html=True)
+        grafica_totales([(r["nombre"], r["eleccion"], r["filas"]) for r in res.values()])
         st.caption(f"Cada persona invirtió {dinero(inv)}. {regla_cupon()}")
 
 
