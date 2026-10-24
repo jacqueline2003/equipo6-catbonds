@@ -59,7 +59,7 @@ table.flujo td.n, table.flujo th.n { text-align:right; white-space:nowrap; }
            overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .rejilla { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; }
 @media (max-width: 640px) { .rejilla { grid-template-columns:repeat(3, 1fr); gap:6px; } .persona { font-size:0.8rem; padding:6px 4px; } }
-.p-jugando { background:#9AA3AC; } .p-cat { background:#3C8D5A; } .p-hit { background:#B23A2B; } .p-normal { background:#2E5E8C; }
+.p-jugando { background:#9AA3AC; } .p-cat { background:#3C8D5A; } .p-hit { background:#B23A2B; } .p-normal { background:#2E5E8C; } .p-normal-sismo { background:#2E5E8C; box-shadow: inset 0 0 0 3px #E8A33D; }
 .metric { font-family:'Space Grotesk',sans-serif; font-size:2.6rem; margin:2px 0 8px; font-weight:700; line-height:1.1; }
 .label { font-size:0.85rem; margin-bottom:2px; color:#5B6672; text-transform:uppercase; letter-spacing:0.04em; }
 .grande { font-family:'Space Grotesk',sans-serif; font-size:3rem; font-weight:700; line-height:1.05; margin:4px 0 6px; }
@@ -151,7 +151,7 @@ def esperado(eleccion):
     return tot
 
 
-def comparar_html(hits, n, teoria):
+def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None):
     """Recuadro: cuántos tuvieron sismo en este grupo contra lo esperado, con dos barras."""
     real = hits / n if n else 0
     def barra(etiqueta, valor, color, texto):
@@ -162,6 +162,12 @@ def comparar_html(hits, n, teoria):
     return ("<div class='card'><b>¿A cuántos les tocó sismo en sus 4 años? (contando a todos)</b>"
             + barra(f"En este grupo ({hits} de {n})", real, "#B23A2B", f"{real:.0%}")
             + barra(f"Lo esperado (como {teoria * n:.0f} de {n})", teoria, "#9AA3AC", f"{teoria:.0%}")
+            + (f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:0.9rem'>"
+               f"<span><span class='tag' style='background:#B23A2B;color:#fff'>{hits_cat}</span> "
+               f"{'tenía cat bond: lo perdió' if hits_cat == 1 else 'tenían cat bond: lo perdieron'}</span>"
+               f"<span><span class='tag tag-normal'>{hits_normal}</span> "
+               f"{'tenía bono normal: no le afectó' if hits_normal == 1 else 'tenían bono normal: no les afectó'}</span></div>"
+               if hits_cat is not None else "")
             + f"<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>Lo esperado ({teoria:.0%}) es la probabilidad "
               f"de que tiemble al menos una vez en {ANIOS} años, con {E['params']['p']:.2%} por año. "
               f"El sismo pasa o no sin importar qué bono elegiste; por eso contamos a todos, aunque a los del bono normal no les afecte. Con poca gente el número "
@@ -429,7 +435,7 @@ def controles():
 
 def chip(r):
     if r["eleccion"] == "normal":
-        cls = "p-normal"
+        cls = "p-normal-sismo" if r.get("sismo_normal") else "p-normal"
     elif r["golpeado"]:
         cls = "p-hit"
     elif r["terminado"]:
@@ -448,7 +454,8 @@ def pantalla_stand():
         filas = flujos(v["eleccion"], s)
         a = v.get("anio", 0)
         res.append({**v, "sismos": s, "filas": filas, "terminado": a == ANIOS,
-                    "golpeado": any(f["sismo"] for f in filas[:a])})
+                    "golpeado": any(f["sismo"] for f in filas[:a]),
+                    "sismo_normal": v["eleccion"] == "normal" and any(f["evento"] for f in filas[:a])})
     n = len(res)
     fin = [r for r in res if r["terminado"]]
     cat = [total_recibido(r["filas"]) for r in fin if r["eleccion"] == "cat"]
@@ -478,15 +485,17 @@ def pantalla_stand():
             y.markdown(f"<div class='label'>Promedio bono normal</div><div class='metric' style='color:#2E5E8C'>{dinero(sum(nor)/len(nor))}</div>", unsafe_allow_html=True)
         if fin:
             hit_all = sum(any(r["sismos"]) for r in fin)
+            hc = sum(any(r["sismos"]) for r in fin if r["eleccion"] == "cat")
             teoria = 1 - (1 - pr["p"]) ** ANIOS
-            st.markdown(comparar_html(hit_all, len(fin), teoria), unsafe_allow_html=True)
+            st.markdown(comparar_html(hit_all, len(fin), teoria, hc, hit_all - hc), unsafe_allow_html=True)
 
     if res:
         st.markdown("<div class='label' style='margin-top:10px'>Últimos en jugar</div>", unsafe_allow_html=True)
         st.markdown("<span class='tag' style='background:#9AA3AC;color:#fff'>Jugando</span> &nbsp; "
                     "<span class='tag' style='background:#3C8D5A;color:#fff'>Cat bond intacto</span> &nbsp; "
                     "<span class='tag' style='background:#B23A2B;color:#fff'>Cat bond disparado</span> &nbsp; "
-                    "<span class='tag tag-normal'>Bono normal</span>", unsafe_allow_html=True)
+                    "<span class='tag tag-normal'>Bono normal</span> &nbsp; "
+                    "<span class='tag tag-normal' style='box-shadow: inset 0 0 0 2px #E8A33D'>Bono normal con sismo (no le afecta)</span>", unsafe_allow_html=True)
         st.write("")
         recientes = res[-18:][::-1]
         st.markdown(f"<div class='rejilla'>{''.join(chip(r) for r in recientes)}</div>", unsafe_allow_html=True)
@@ -530,7 +539,8 @@ def pantalla():
         s = sismos_de(pid)
         filas = flujos(v["eleccion"], s)
         golpeado = any(f["sismo"] for f in filas[:anio])
-        res[pid] = {**v, "filas": filas, "golpeado": golpeado, "sismos": s}
+        sn = v["eleccion"] == "normal" and any(f["evento"] for f in filas[:anio])
+        res[pid] = {**v, "filas": filas, "golpeado": golpeado, "sismos": s, "sismo_normal": sn}
     golpeados = sum(r["golpeado"] for r in res.values())
 
     titulo = "Antes del primer año" if anio == 0 else f"Año {anio} de {ANIOS}"
@@ -542,11 +552,12 @@ def pantalla():
 
     st.markdown("<span class='tag' style='background:#3C8D5A;color:#fff'>Cat bond intacto</span> &nbsp; "
                 "<span class='tag' style='background:#B23A2B;color:#fff'>Cat bond disparado</span> &nbsp; "
-                "<span class='tag tag-normal'>Bono normal</span>", unsafe_allow_html=True)
+                "<span class='tag tag-normal'>Bono normal</span> &nbsp; "
+                    "<span class='tag tag-normal' style='box-shadow: inset 0 0 0 2px #E8A33D'>Bono normal con sismo (no le afecta)</span>", unsafe_allow_html=True)
     st.write("")
     orden = sorted(res.values(), key=lambda r: (r["eleccion"] != "cat", not r["golpeado"], r["nombre"].lower()))
     chips = "".join(
-        f"<div class='persona {'p-normal' if r['eleccion'] == 'normal' else ('p-hit' if r['golpeado'] else 'p-cat')}'>{r['nombre']}</div>"
+        f"<div class='persona {('p-normal-sismo' if r['sismo_normal'] else 'p-normal') if r['eleccion'] == 'normal' else ('p-hit' if r['golpeado'] else 'p-cat')}'>{r['nombre']}</div>"
         for r in orden)
     st.markdown(f"<div class='rejilla'>{chips}</div>", unsafe_allow_html=True)
 
@@ -564,8 +575,9 @@ def pantalla():
             y.markdown(f"<div class='label'>Promedio bono normal</div><div class='metric' style='color:#2E5E8C'>{dinero(sum(nor)/len(nor))}</div>"
                        f"<p>Todos recibieron lo mismo</p>", unsafe_allow_html=True)
         hit_all = sum(any(r["sismos"]) for r in res.values())
+        hc = sum(any(r["sismos"]) for r in res.values() if r["eleccion"] == "cat")
         teoria = 1 - (1 - pr["p"]) ** ANIOS
-        z.markdown(comparar_html(hit_all, n, teoria), unsafe_allow_html=True)
+        st.markdown(comparar_html(hit_all, n, teoria, hc, hit_all - hc), unsafe_allow_html=True)
         st.caption(f"Cada persona invirtió {dinero(inv)}. {regla_cupon()}")
 
 
