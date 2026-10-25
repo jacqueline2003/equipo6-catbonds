@@ -262,7 +262,7 @@ def vista_celular():
             st.info("La votación ya cerró. Sigue los resultados en la pantalla.")
             return
         pr = E["params"]
-        st.write(f"Tienes **{dinero(pr['inversion'])}** para invertir durante {ANIOS} años. ¿Dónde los pones?")
+        st.write(f"Tienes **{dinero(pr['inversion'])} dólares** para invertir durante {ANIOS} años. ¿Dónde los pones?")
         c1, c2 = st.columns(2)
         inv = pr["inversion"]
         c = cupon_cat()
@@ -516,7 +516,7 @@ def pantalla_stand():
         st.image(qr_png(url_base()), use_container_width=True)
         st.caption(url_base())
     with der:
-        st.markdown("# ¿Dónde pondrías tus $10,000?")
+        st.markdown("# ¿Dónde pondrías tus $10,000 dólares?")
         st.markdown(f"<span class='tag tag-cat'>Cat bond · {cupon_cat():.1%}</span> &nbsp; "
                     f"<span class='tag tag-normal'>Bono normal · {pr['tasa_normal']:.1%}</span>",
                     unsafe_allow_html=True)
@@ -567,7 +567,7 @@ def pantalla():
             st.image(qr_png(url_base()), use_container_width=True)
             st.caption(url_base())
         with der:
-            st.markdown("# ¿Dónde pondrías tus $10,000?")
+            st.markdown("# ¿Dónde pondrías tus $10,000 dólares?")
             st.markdown(f"<span class='tag tag-cat'>Cat bond · {cupon_cat():.1%}</span> &nbsp; "
                         f"<span class='tag tag-normal'>Bono normal · {pr['tasa_normal']:.1%}</span>",
                         unsafe_allow_html=True)
