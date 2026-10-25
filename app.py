@@ -163,7 +163,7 @@ def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None):
                 f"<div style='width:{min(valor, 1) * 100:.0f}%;background:{color};height:12px;border-radius:6px'></div></div></div>")
     return ("<div class='card'><b>¿A cuántos les tocó sismo en sus 4 años? (contando a todos)</b>"
             + barra(f"En este grupo ({hits} de {n})", real, "#B23A2B", f"{real:.0%}")
-            + barra(f"Lo esperado (como {teoria * n:.0f} de {n})", teoria, "#9AA3AC", f"{teoria:.0%}")
+            + barra(f"Lo esperado ({teoria * n:.1f} de {n} en promedio)", teoria, "#9AA3AC", f"{teoria:.0%}")
             + (f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:0.9rem'>"
                f"<span><span class='tag' style='background:#B23A2B;color:#fff'>{hits_cat}</span> "
                f"{'tenía cat bond: lo perdió' if hits_cat == 1 else 'tenían cat bond: lo perdieron'}</span>"
