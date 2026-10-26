@@ -17,7 +17,6 @@ import random
 import threading
 import uuid
 
-import pydeck as pdk
 import qrcode
 import streamlit as st
 
@@ -161,29 +160,48 @@ def contorno_mexico():
         return json.load(f)
 
 
-def mapa(eventos, alto=320, zoom=4.0):
-    """Mapa de México con los sismos: rojo = disparó el bono, naranja = fuerte pero no alcanzó."""
-    puntos = []
-    for e in eventos:
-        if not e:
-            continue
-        puntos.append({
-            "lon": e["lon"], "lat": e["lat"],
-            "color": [178, 58, 43, 210] if e["dispara"] else [232, 163, 61, 200],
-            "radio": 15000 + (e["mag"] - 6.5) * 45000,
-            "texto": f"M{e['mag']} en {e['lugar']}: " + ("disparó el bono" if e["dispara"] else f"no alcanzó (umbral {e['umbral']})"),
-        })
-    capa = pdk.Layer("ScatterplotLayer", data=puntos, get_position="[lon, lat]", get_fill_color="color",
-                     get_radius="radio", pickable=True, stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1)
-    pais = pdk.Layer("GeoJsonLayer", data=contorno_mexico(), stroked=True, filled=True,
-                     get_fill_color=[218, 226, 228, 140], get_line_color=[4, 48, 65, 160], line_width_min_pixels=1)
-    vista = pdk.ViewState(latitude=23.0, longitude=-102.0, zoom=zoom)
-    st.pydeck_chart(pdk.Deck(layers=[pais, capa], initial_view_state=vista, tooltip={"text": "{texto}"}),
-                    height=alto, use_container_width=True)
-    st.markdown("<div style='font-size:0.85rem;color:#5B6672'>"
-                "<span style='display:inline-block;width:11px;height:11px;border-radius:50%;background:#B23A2B'></span> Sismo que disparó el bono &nbsp; "
-                "<span style='display:inline-block;width:11px;height:11px;border-radius:50%;background:#E8A33D'></span> Sismo fuerte que no alcanzó"
-                "</div>", unsafe_allow_html=True)
+def visibles(eventos, eleccion, anio):
+    """Sismos que se muestran: hasta el año actual. Con cat bond, solo hasta el que lo disparó
+    (después ya no tiene caso, el bono ya no existe)."""
+    res = []
+    for k, e in enumerate(eventos[:anio]):
+        if e:
+            res.append(dict(e, anio=k + 1))
+            if eleccion == "cat" and e["dispara"]:
+                break
+    return res
+
+
+def mapa(eventos, etiquetas=False):
+    """Mapa propio de México en SVG (sin mosaicos ni zoom): rojo = disparó el bono, naranja = fuerte pero no alcanzó."""
+    lon0, lon1, lat0, lat1 = -118.0, -86.0, 14.0, 33.0
+    k, cosl = 20.0, 0.92
+    W, H = (lon1 - lon0) * k * cosl, (lat1 - lat0) * k
+    xy = lambda lon, lat: ((lon - lon0) * k * cosl, (lat1 - lat) * k)
+    g = contorno_mexico()["features"][0]["geometry"]
+    polys = g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]
+    path = ""
+    for poly in polys:
+        for ring in poly:
+            pts = [xy(lo, la) for lo, la in ring]
+            path += "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in pts) + " Z "
+    circulos = ""
+    for e in sorted(eventos, key=lambda e: e["dispara"]):
+        x, y = xy(e["lon"], e["lat"])
+        r = 4 + (e["mag"] - 6.5) * 7
+        color = "#B23A2B" if e["dispara"] else "#E8A33D"
+        txt = f"M{e['mag']} en {e['lugar']}: " + ("disparó el bono" if e["dispara"] else f"no alcanzó (umbral {e['umbral']})")
+        circulos += (f"<circle cx='{x:.1f}' cy='{y:.1f}' r='{r:.1f}' fill='{color}' fill-opacity='0.85' stroke='#fff' stroke-width='1.5'>"
+                     f"<title>{txt}</title></circle>")
+        if etiquetas:
+            circulos += (f"<text x='{x + r + 5:.1f}' y='{y + 7:.1f}' font-size='22' font-weight='600' font-family='Source Sans 3, sans-serif' "
+                         f"fill='#1F2A36'>Año {e['anio']} · M{e['mag']}</text>")
+    svg = (f"<svg viewBox='0 0 {W:.0f} {H:.0f}' width='100%' style='max-width:620px;display:block;margin:0 auto'>"
+           f"<path d='{path}' fill='#EDE7DD' stroke='#8FA2AC' stroke-width='1.2' stroke-linejoin='round'/>{circulos}</svg>")
+    leyenda = ("<div style='font-size:0.85rem;color:#5B6672;margin-top:6px;text-align:center'>"
+               "<span style='display:inline-block;width:11px;height:11px;border-radius:50%;background:#B23A2B'></span> Disparó el bono &nbsp;&nbsp; "
+               "<span style='display:inline-block;width:11px;height:11px;border-radius:50%;background:#E8A33D'></span> Fuerte, pero no alcanzó</div>")
+    st.markdown(f"<div class='card'>{svg}{leyenda}</div>", unsafe_allow_html=True)
 
 
 def flujos(eleccion, sismos):
@@ -486,8 +504,9 @@ def seguimiento_stand(pid):
         st.markdown("<div class='card'>Vamos a ver qué pasa con tu dinero año por año.</div>", unsafe_allow_html=True)
     else:
         tabla_anios(v, filas, anio, eventos=eventos)
-        if any(eventos[:anio]):
-            mapa(eventos[:anio], alto=260, zoom=3.0)
+        vis = visibles(eventos, v["eleccion"], anio)
+        if vis:
+            mapa(vis, etiquetas=True)
     if anio < ANIOS:
         etiqueta = "Empezar: año 1" if anio == 0 else f"Siguiente: año {anio + 1}"
         if st.button(etiqueta, type="primary", use_container_width=True):
@@ -519,8 +538,9 @@ def seguimiento(pid):
     eventos = eventos_de(pid)
     filas = flujos(v["eleccion"], sismos)
     tabla_anios(v, filas, anio, eventos=eventos)
-    if any(eventos[:anio]):
-        mapa(eventos[:anio], alto=260, zoom=3.0)
+    vis = visibles(eventos, v["eleccion"], anio)
+    if vis:
+        mapa(vis, etiquetas=True)
     if anio == ANIOS:
         resultado_final(v, sismos, filas, eventos)
 
@@ -645,10 +665,10 @@ def pantalla_stand():
         st.markdown(f"<div class='rejilla'>{''.join(chip(r) for r in recientes)}</div>", unsafe_allow_html=True)
     if fin:
         grafica_totales([(r["nombre"], r["eleccion"], r["filas"]) for r in fin[-40:]])
-    todos = [e for pid, v in votos for e in eventos_de(pid)[:v.get("anio", 0)] if e]
+    todos = [e for pid, v in votos for e in visibles(eventos_de(pid), v["eleccion"], v.get("anio", 0))]
     if todos:
         st.markdown("<div class='label' style='margin-top:24px'>Dónde tembló</div>", unsafe_allow_html=True)
-        mapa(todos, alto=440, zoom=4.0)
+        mapa(todos)
 
 
 @st.fragment(run_every=2)
@@ -729,10 +749,10 @@ def pantalla():
         teoria = 1 - (1 - pr["p"]) ** ANIOS
         st.markdown(comparar_html(hit_all, n, teoria, hc, hit_all - hc), unsafe_allow_html=True)
         grafica_totales([(r["nombre"], r["eleccion"], r["filas"]) for r in res.values()])
-    todos = [e for pid in votos for e in eventos_de(pid)[:anio] if e]
+    todos = [e for pid, v in votos.items() for e in visibles(eventos_de(pid), v["eleccion"], anio)]
     if todos and anio > 0:
         st.markdown("<div class='label' style='margin-top:24px'>Dónde tembló</div>", unsafe_allow_html=True)
-        mapa(todos, alto=440, zoom=4.0)
+        mapa(todos)
         st.caption(f"Cada persona invirtió {dinero(inv)}. {regla_cupon()}")
 
 
