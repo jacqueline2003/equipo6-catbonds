@@ -676,14 +676,15 @@ def pantalla_stand():
             st.markdown(comparar_html(hit_all, len(fin), teoria, hc, hit_all - hc, nota=" que ya terminaron" if len(fin) < n else ""), unsafe_allow_html=True)
 
     if res:
-        st.markdown("<div class='label' style='margin-top:10px'>Últimos en jugar</div>", unsafe_allow_html=True)
+        titulo_lista = "Todos los que han jugado" if len(res) <= 40 else f"Los 40 más recientes (de {len(res)})"
+        st.markdown(f"<div class='label' style='margin-top:10px'>{titulo_lista}</div>", unsafe_allow_html=True)
         st.markdown("<span class='tag' style='background:#9AA3AC;color:#fff'>Jugando</span> &nbsp; "
                     "<span class='tag' style='background:#3C8D5A;color:#fff'>Cat bond: no se disparó</span> &nbsp; "
                     "<span class='tag' style='background:#B23A2B;color:#fff'>Cat bond: se disparó</span> &nbsp; "
                     "<span class='tag tag-normal'>Bono normal</span> &nbsp; "
                     "<span class='tag tag-normal' style='box-shadow: inset 0 0 0 2px #E8A33D'>Bono normal: tembló fuerte, no le afecta</span>", unsafe_allow_html=True)
         st.write("")
-        recientes = res[-18:][::-1]
+        recientes = res[-40:][::-1]
         st.markdown(f"<div class='rejilla'>{''.join(chip(r) for r in recientes)}</div>", unsafe_allow_html=True)
     if fin:
         grafica_totales([(r["nombre"], r["eleccion"], r["filas"]) for r in fin[-40:]])
