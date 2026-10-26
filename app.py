@@ -274,7 +274,7 @@ def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None, nota=""):
                 f"<span>{etiqueta}</span><b>{texto}</b></div>"
                 f"<div style='background:#EEE7DC;border-radius:6px;height:12px;margin-top:3px'>"
                 f"<div style='width:{min(valor, 1) * 100:.0f}%;background:{color};height:12px;border-radius:6px'></div></div></div>")
-    return ("<div class='card'><b>¿A cuántos les tocó sismo en sus 4 años? (contando a todos)</b>"
+    return ("<div class='card'><b>¿A cuántos les tocó un sismo que dispara el bono? (contando a todos)</b>"
             + barra(f"En este grupo ({hits} de {n}{nota})", real, "#B23A2B", f"{real:.0%}")
             + barra(f"Lo esperado ({teoria * n:.1f} de {n} en promedio)", teoria, "#9AA3AC", f"{teoria:.0%}")
             + (f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:0.9rem'>"
@@ -283,7 +283,7 @@ def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None, nota=""):
                f"<span><span class='tag tag-normal'>{hits_normal}</span> "
                f"{'tenía bono normal: no le afectó' if hits_normal == 1 else 'tenían bono normal: no les afectó'}</span></div>"
                if hits_cat is not None else "")
-            + f"<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>{teoria:.0%} = probabilidad de que tiemble al menos una vez en {ANIOS} años. "
+            + f"<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>{teoria:.0%} = probabilidad de que en {ANIOS} años haya al menos un sismo que dispare el bono. "
               f"Contamos a todos porque el sismo no depende del bono que elegiste. "
               f"Con más gente, el grupo se acerca al {teoria:.0%}.</p></div>")
 
@@ -313,9 +313,9 @@ def grafica_totales(filas_personas):
             return f"perdieron {dinero(-hi)}" if round(lo) == round(hi) else f"perdieron entre {dinero(-hi)} y {dinero(-lo)}"
         return f"ganaron {dinero(lo)}" if round(lo) == round(hi) else f"ganaron entre {dinero(lo)} y {dinero(hi)}"
 
-    tarjetas = [("intacto", "Cat bond sin sismo", "#3C8D5A"),
+    tarjetas = [("intacto", "Cat bond: no se disparó", "#3C8D5A"),
                 ("normal", "Bono normal", "#2E5E8C"),
-                ("disparado", "Cat bond con sismo", "#B23A2B")]
+                ("disparado", "Cat bond: se disparó", "#B23A2B")]
     html = "<div class='label' style='margin-top:28px;margin-bottom:8px'>¿Cómo les fue?</div><div class='resultados'>"
     for clave, titulo, color in tarjetas:
         lst = grupos[clave]
@@ -678,10 +678,10 @@ def pantalla_stand():
     if res:
         st.markdown("<div class='label' style='margin-top:10px'>Últimos en jugar</div>", unsafe_allow_html=True)
         st.markdown("<span class='tag' style='background:#9AA3AC;color:#fff'>Jugando</span> &nbsp; "
-                    "<span class='tag' style='background:#3C8D5A;color:#fff'>Cat bond intacto</span> &nbsp; "
-                    "<span class='tag' style='background:#B23A2B;color:#fff'>Cat bond disparado</span> &nbsp; "
+                    "<span class='tag' style='background:#3C8D5A;color:#fff'>Cat bond: no se disparó</span> &nbsp; "
+                    "<span class='tag' style='background:#B23A2B;color:#fff'>Cat bond: se disparó</span> &nbsp; "
                     "<span class='tag tag-normal'>Bono normal</span> &nbsp; "
-                    "<span class='tag tag-normal' style='box-shadow: inset 0 0 0 2px #E8A33D'>Bono normal con sismo (no le afecta)</span>", unsafe_allow_html=True)
+                    "<span class='tag tag-normal' style='box-shadow: inset 0 0 0 2px #E8A33D'>Bono normal: tembló fuerte, no le afecta</span>", unsafe_allow_html=True)
         st.write("")
         recientes = res[-18:][::-1]
         st.markdown(f"<div class='rejilla'>{''.join(chip(r) for r in recientes)}</div>", unsafe_allow_html=True)
@@ -742,10 +742,10 @@ def pantalla():
     b.markdown(f"<div class='label'>Eligieron cat bond</div><div class='metric' style='color:#C8553D'>{n_cat}</div>", unsafe_allow_html=True)
     c.markdown(f"<div class='label'>Eligieron bono normal</div><div class='metric' style='color:#2E5E8C'>{n - n_cat}</div>", unsafe_allow_html=True)
 
-    st.markdown("<span class='tag' style='background:#3C8D5A;color:#fff'>Cat bond intacto</span> &nbsp; "
-                "<span class='tag' style='background:#B23A2B;color:#fff'>Cat bond disparado</span> &nbsp; "
+    st.markdown("<span class='tag' style='background:#3C8D5A;color:#fff'>Cat bond: no se disparó</span> &nbsp; "
+                "<span class='tag' style='background:#B23A2B;color:#fff'>Cat bond: se disparó</span> &nbsp; "
                 "<span class='tag tag-normal'>Bono normal</span> &nbsp; "
-                    "<span class='tag tag-normal' style='box-shadow: inset 0 0 0 2px #E8A33D'>Bono normal con sismo (no le afecta)</span>", unsafe_allow_html=True)
+                    "<span class='tag tag-normal' style='box-shadow: inset 0 0 0 2px #E8A33D'>Bono normal: tembló fuerte, no le afecta</span>", unsafe_allow_html=True)
     st.write("")
     orden = sorted(res.values(), key=lambda r: (r["eleccion"] != "cat", not r["golpeado"], r["nombre"].lower()))
     chips = "".join(
