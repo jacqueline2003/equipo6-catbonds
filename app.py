@@ -246,7 +246,7 @@ def esperado(eleccion):
     return tot
 
 
-def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None):
+def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None, nota=""):
     """Recuadro: cuántos tuvieron sismo en este grupo contra lo esperado, con dos barras."""
     real = hits / n if n else 0
     def barra(etiqueta, valor, color, texto):
@@ -255,7 +255,7 @@ def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None):
                 f"<div style='background:#EEE7DC;border-radius:6px;height:12px;margin-top:3px'>"
                 f"<div style='width:{min(valor, 1) * 100:.0f}%;background:{color};height:12px;border-radius:6px'></div></div></div>")
     return ("<div class='card'><b>¿A cuántos les tocó sismo en sus 4 años? (contando a todos)</b>"
-            + barra(f"En este grupo ({hits} de {n})", real, "#B23A2B", f"{real:.0%}")
+            + barra(f"En este grupo ({hits} de {n}{nota})", real, "#B23A2B", f"{real:.0%}")
             + barra(f"Lo esperado ({teoria * n:.1f} de {n} en promedio)", teoria, "#9AA3AC", f"{teoria:.0%}")
             + (f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:0.9rem'>"
                f"<span><span class='tag' style='background:#B23A2B;color:#fff'>{hits_cat}</span> "
@@ -639,7 +639,9 @@ def pantalla_stand():
                     unsafe_allow_html=True)
         st.write("")
         a, b, c = st.columns(3)
-        a.markdown(f"<div class='label'>Han jugado</div><div class='metric'>{n}</div>", unsafe_allow_html=True)
+        a.markdown(f"<div class='label'>Han jugado</div><div class='metric'>{n}</div>"
+                   + (f"<div style='font-size:0.85rem;color:#5B6672;margin-top:-6px'>{n - len(fin)} {'sigue' if n - len(fin) == 1 else 'siguen'} jugando</div>" if n > len(fin) else ""),
+                   unsafe_allow_html=True)
         b.markdown(f"<div class='label'>Eligieron cat bond</div><div class='metric' style='color:#C8553D'>{n_cat}</div>", unsafe_allow_html=True)
         c.markdown(f"<div class='label'>Eligieron bono normal</div><div class='metric' style='color:#2E5E8C'>{n - n_cat}</div>", unsafe_allow_html=True)
         x, y = st.columns(2)
@@ -651,7 +653,7 @@ def pantalla_stand():
             hit_all = sum(any(r["sismos"]) for r in fin)
             hc = sum(any(r["sismos"]) for r in fin if r["eleccion"] == "cat")
             teoria = 1 - (1 - pr["p"]) ** ANIOS
-            st.markdown(comparar_html(hit_all, len(fin), teoria, hc, hit_all - hc), unsafe_allow_html=True)
+            st.markdown(comparar_html(hit_all, len(fin), teoria, hc, hit_all - hc, nota=" que ya terminaron" if len(fin) < n else ""), unsafe_allow_html=True)
 
     if res:
         st.markdown("<div class='label' style='margin-top:10px'>Últimos en jugar</div>", unsafe_allow_html=True)
