@@ -107,18 +107,18 @@ def dinero(x):
 # Lugares ilustrativos para el mapa (zonas sísmicas de México). Umbral = magnitud mínima para disparar el bono.
 # El 7.8 de la costa sale del análisis de Artemis del sismo de Oaxaca 2018; el del centro es ilustrativo.
 UMBRAL = {"Costa del Pacífico": 7.8, "Centro": 7.4}
-LUGARES = [  # (lugar, zona, lat, lon, peso)
-    ("costa de Chiapas", "Costa del Pacífico", 14.9, -93.9, 3),
-    ("Salina Cruz, Oax.", "Costa del Pacífico", 15.9, -95.2, 2),
-    ("Pinotepa, Oax.", "Costa del Pacífico", 16.1, -98.1, 3),
-    ("Acapulco, Gro.", "Costa del Pacífico", 16.6, -99.9, 3),
-    ("Petatlán, Gro.", "Costa del Pacífico", 17.3, -101.4, 2),
-    ("Lázaro Cárdenas, Mich.", "Costa del Pacífico", 17.8, -102.4, 2),
-    ("Manzanillo, Col.", "Costa del Pacífico", 18.8, -104.4, 2),
-    ("costa de Jalisco", "Costa del Pacífico", 19.6, -105.4, 1),
+LUGARES = [  # (lugar, zona, lat, lon, peso) — puntos sobre la costa, dentro del contorno del mapa
+    ("Tonalá, Chis.", "Costa del Pacífico", 16.09, -93.75, 3),
+    ("Salina Cruz, Oax.", "Costa del Pacífico", 16.25, -95.2, 2),
+    ("Pinotepa, Oax.", "Costa del Pacífico", 16.4, -98.05, 3),
+    ("Acapulco, Gro.", "Costa del Pacífico", 16.95, -99.85, 3),
+    ("Petatlán, Gro.", "Costa del Pacífico", 17.6, -101.2, 2),
+    ("Lázaro Cárdenas, Mich.", "Costa del Pacífico", 18.05, -102.15, 2),
+    ("Manzanillo, Col.", "Costa del Pacífico", 19.15, -104.2, 2),
+    ("costa de Jalisco", "Costa del Pacífico", 19.8, -105.2, 1),
     ("Puebla-Morelos", "Centro", 18.4, -98.7, 2),
     ("Huajuapan, Oax.", "Centro", 17.8, -97.8, 1),
-    ("Chilpancingo, Gro.", "Centro", 17.5, -99.5, 1),
+    ("Chilpancingo, Gro.", "Centro", 17.55, -99.5, 1),
 ]
 
 
@@ -138,11 +138,11 @@ def eventos_de(pid):
         if u < pr["p"]:
             mag = round(thr + rng.random() * 0.5, 1)
             res.append({"dispara": True, "trimestre": trimestre, "mag": mag, "lugar": lugar, "zona": zona, "umbral": thr,
-                        "lat": lat + rng.uniform(-0.3, 0.3), "lon": lon + rng.uniform(-0.3, 0.3)})
+                        "lat": lat + rng.uniform(0, 0.3), "lon": lon + rng.uniform(-0.15, 0.15)})
         elif u < pr["p"] + pr["q_cerca"]:
             mag = round(thr - 0.1 - rng.random() * 0.7, 1)
             res.append({"dispara": False, "trimestre": trimestre, "mag": mag, "lugar": lugar, "zona": zona, "umbral": thr,
-                        "lat": lat + rng.uniform(-0.3, 0.3), "lon": lon + rng.uniform(-0.3, 0.3)})
+                        "lat": lat + rng.uniform(0, 0.3), "lon": lon + rng.uniform(-0.15, 0.15)})
         else:
             res.append(None)
     return res
