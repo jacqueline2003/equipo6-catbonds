@@ -11,10 +11,13 @@ Vistas:
   pantalla ->  https://TU-APP.streamlit.app/?vista=pantalla&clave=CLAVE
 """
 import io
+import json
+import os
 import random
 import threading
 import uuid
 
+import pydeck as pdk
 import qrcode
 import streamlit as st
 
@@ -23,7 +26,8 @@ CLAVE = "equipo6"  # cámbienla antes de la expo
 # Valores por defecto (los mismos del Excel, pestaña 3)
 DEFAULTS = {
     "inversion": 10_000,
-    "tasa_normal": 0.04,   # supuesto del equipo
+    "tasa_normal": 0.0524, # T-bill de EE.UU. a 3 meses, abril 2024 (emisión del bono). FRED, serie TB3MS
+    "q_cerca": 0.30,       # ilustrativo: prob. por año de un sismo fuerte que NO alcanza el umbral
     "p": 0.0584,           # pérdida esperada anual, bono vigente 2024 clase B (se supone s = 100%)
     "severidad": 1.0,
     "m": 0.11 / 0.0584,    # margen 11% / pérdida esperada 5.84% ≈ 1.88 (bono 2024 clase B)
@@ -39,6 +43,7 @@ st.markdown("""
 html, body, [class*="css"], .stMarkdown, p, li, label { font-family: 'Source Sans 3', sans-serif; }
 h1, h2, h3, .big { font-family: 'Space Grotesk', sans-serif !important; letter-spacing: -0.01em; }
 #MainMenu, footer { visibility: hidden; }
+[data-testid="stToolbarActions"], .stAppDeployButton, [data-testid="stAppDeployButton"] { display: none !important; }
 .block-container { padding-top: 1.6rem; }
 .tag { display:inline-block; padding:2px 10px; border-radius:999px; font-size:0.8rem; font-weight:600; }
 .tag-cat { background:#C8553D; color:#fff; }
@@ -76,7 +81,7 @@ def estado():
     return {
         "lock": threading.Lock(),
         "votos": {},            # id -> {"nombre": str, "eleccion": "cat" | "normal"}
-        "modo": "salon",        # salon (todos a la vez) | stand (llegan de a pocos)
+        "modo": "stand",        # stand (cada quien a su ritmo) | salon (todos a la vez)
         "fase": "votacion",     # votacion | sorteo (solo modo salón)
         "anio": 0,              # último año revelado (0 a 4)
         "semilla": random.randint(1, 10**9),
@@ -87,7 +92,7 @@ E = estado()
 # Si la app se actualiza sin reiniciarse, el estado viejo puede no tener los datos nuevos:
 for _k, _v in DEFAULTS.items():
     E["params"].setdefault(_k, _v)
-E.setdefault("modo", "salon")
+E.setdefault("modo", "stand")
 
 
 def cupon_cat():
@@ -100,15 +105,85 @@ def dinero(x):
     return f"${x:,.0f}"
 
 
-def sismos_de(pid):
-    """Sorteo fijo por persona: no cambia aunque entren más votos."""
+# Lugares ilustrativos para el mapa (zonas sísmicas de México). Umbral = magnitud mínima para disparar el bono.
+# El 7.8 de la costa sale del análisis de Artemis del sismo de Oaxaca 2018; el del centro es ilustrativo.
+UMBRAL = {"Costa del Pacífico": 7.8, "Centro": 7.4}
+LUGARES = [  # (lugar, zona, lat, lon, peso)
+    ("costa de Chiapas", "Costa del Pacífico", 14.9, -93.9, 3),
+    ("Salina Cruz, Oax.", "Costa del Pacífico", 15.9, -95.2, 2),
+    ("Pinotepa, Oax.", "Costa del Pacífico", 16.1, -98.1, 3),
+    ("Acapulco, Gro.", "Costa del Pacífico", 16.6, -99.9, 3),
+    ("Petatlán, Gro.", "Costa del Pacífico", 17.3, -101.4, 2),
+    ("Lázaro Cárdenas, Mich.", "Costa del Pacífico", 17.8, -102.4, 2),
+    ("Manzanillo, Col.", "Costa del Pacífico", 18.8, -104.4, 2),
+    ("costa de Jalisco", "Costa del Pacífico", 19.6, -105.4, 1),
+    ("Puebla-Morelos", "Centro", 18.4, -98.7, 2),
+    ("Huajuapan, Oax.", "Centro", 17.8, -97.8, 1),
+    ("Chilpancingo, Gro.", "Centro", 17.5, -99.5, 1),
+]
+
+
+def eventos_de(pid):
+    """Sorteo fijo por persona: no cambia aunque entren más votos.
+    Cada año: con probabilidad p un sismo que dispara el bono; con probabilidad q_cerca uno fuerte
+    que no alcanza el umbral; si no, nada."""
     rng = random.Random(f"{E['semilla']}|{pid}")
+    pr = E["params"]
+    pesos = [l[4] for l in LUGARES]
     res = []
     for _ in range(ANIOS):
-        hay = rng.random() < E["params"]["p"]
+        u = rng.random()
         trimestre = 1 + int(rng.random() * 4)
-        res.append(trimestre if hay else 0)   # 0 = sin sismo; 1 a 4 = trimestre del sismo
+        lugar, zona, lat, lon, _w = rng.choices(LUGARES, weights=pesos)[0]
+        thr = UMBRAL[zona]
+        if u < pr["p"]:
+            mag = round(thr + rng.random() * 0.5, 1)
+            res.append({"dispara": True, "trimestre": trimestre, "mag": mag, "lugar": lugar, "zona": zona, "umbral": thr,
+                        "lat": lat + rng.uniform(-0.3, 0.3), "lon": lon + rng.uniform(-0.3, 0.3)})
+        elif u < pr["p"] + pr["q_cerca"]:
+            mag = round(thr - 0.1 - rng.random() * 0.7, 1)
+            res.append({"dispara": False, "trimestre": trimestre, "mag": mag, "lugar": lugar, "zona": zona, "umbral": thr,
+                        "lat": lat + rng.uniform(-0.3, 0.3), "lon": lon + rng.uniform(-0.3, 0.3)})
+        else:
+            res.append(None)
     return res
+
+
+def sismos_de(pid):
+    """0 = no se disparó el bono ese año; 1 a 4 = trimestre del sismo que lo disparó."""
+    return [e["trimestre"] if (e and e["dispara"]) else 0 for e in eventos_de(pid)]
+
+
+@st.cache_data
+def contorno_mexico():
+    # Contorno de México (world.geo.json, dominio público) para que el mapa se vea aunque no carguen los mosaicos.
+    with open(os.path.join(os.path.dirname(__file__), "mexico.geo.json")) as f:
+        return json.load(f)
+
+
+def mapa(eventos, alto=320, zoom=4.0):
+    """Mapa de México con los sismos: rojo = disparó el bono, naranja = fuerte pero no alcanzó."""
+    puntos = []
+    for e in eventos:
+        if not e:
+            continue
+        puntos.append({
+            "lon": e["lon"], "lat": e["lat"],
+            "color": [178, 58, 43, 210] if e["dispara"] else [232, 163, 61, 200],
+            "radio": 15000 + (e["mag"] - 6.5) * 45000,
+            "texto": f"M{e['mag']} en {e['lugar']}: " + ("disparó el bono" if e["dispara"] else f"no alcanzó (umbral {e['umbral']})"),
+        })
+    capa = pdk.Layer("ScatterplotLayer", data=puntos, get_position="[lon, lat]", get_fill_color="color",
+                     get_radius="radio", pickable=True, stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1)
+    pais = pdk.Layer("GeoJsonLayer", data=contorno_mexico(), stroked=True, filled=True,
+                     get_fill_color=[218, 226, 228, 140], get_line_color=[4, 48, 65, 160], line_width_min_pixels=1)
+    vista = pdk.ViewState(latitude=23.0, longitude=-102.0, zoom=zoom)
+    st.pydeck_chart(pdk.Deck(layers=[pais, capa], initial_view_state=vista, tooltip={"text": "{texto}"}),
+                    height=alto, use_container_width=True)
+    st.markdown("<div style='font-size:0.85rem;color:#5B6672'>"
+                "<span style='display:inline-block;width:11px;height:11px;border-radius:50%;background:#B23A2B'></span> Sismo que disparó el bono &nbsp; "
+                "<span style='display:inline-block;width:11px;height:11px;border-radius:50%;background:#E8A33D'></span> Sismo fuerte que no alcanzó"
+                "</div>", unsafe_allow_html=True)
 
 
 def flujos(eleccion, sismos):
@@ -287,19 +362,21 @@ def vista_celular():
 |---|---|
 | Emisor | Gobierno federal de México, con el Banco Mundial |
 | Bono | El vigente: emitido en 2024, vence en 2028 (clase B, sismo) |
-| Qué lo dispara | Un sismo muy fuerte en las zonas del contrato, sobre todo el sur y la costa del Pacífico. Cada zona tiene su magnitud mínima |
-| Probabilidad de sismo por año | {pr['p']:.2%} |
+| Qué lo dispara | Un sismo muy fuerte en las zonas del contrato, sobre todo el sur y la costa del Pacífico. Cada zona tiene su magnitud mínima (en la app, ilustrativo: costa desde {UMBRAL['Costa del Pacífico']}, centro desde {UMBRAL['Centro']}) |
+| Probabilidad de que se dispare en un año | {pr['p']:.2%} (de todas las zonas juntas, según el modelo del bono) |
 | Probabilidad de que se dispare en {ANIOS} años | {prob_4_anios():.1%} |
 | Si se dispara | Pierdes el {pr['severidad']:.0%} de lo invertido y dejas de cobrar |
-| Cupón | {c:.1%} anual = {pr['tasa_normal']:.0%} (tasa libre de riesgo) + {c - pr['tasa_normal']:.1%} (pago por el riesgo) |
+| Cupón | {c:.1%} anual = {pr['tasa_normal']:.2%} (tasa libre de riesgo en dólares cuando se emitió) + {c - pr['tasa_normal']:.1%} (pago por el riesgo) |
 | Cuándo se cobra el cupón | {regla_cupon()} |
 | Lo que recibirías en promedio | Cat bond {dinero(esperado('cat')).replace('$', chr(92) + '$')} · Bono normal {dinero(esperado('normal')).replace('$', chr(92) + '$')} |
 """)
             st.caption(("Como en el bono real, el cupón se paga cada 3 meses. " if pr["trimestral"] else
                         "Simplificación: aquí el cupón se paga una vez al año; en el bono real se paga cada 3 meses y cobras hasta el trimestre del sismo. ") +
                        "Suponemos que si se dispara se pierde todo; el bono real puede pagar por partes. "
-                       "Así ya pasó en 2017: el sismo de Chiapas (8.1) activó el bono de entonces y México cobró 150 millones de dólares. "
-                       "Fuentes: Banco Mundial y Artemis (abril 2024).")
+                       "Así ya pasó en 2017: el sismo de Chiapas (8.1, 7 de septiembre) activó el bono de entonces. Hacienda lo confirmó el 11 de octubre: "
+                       "pagó 150 millones de dólares, el 100% de esa clase, así que sus inversionistas perdieron todo lo que habían puesto en ella. "
+                       "El dinero fue a FONDEN para reconstruir escuelas, hospitales, carreteras y vivienda. "
+                       "Fuentes: Banco Mundial, Artemis (2017 y abril 2024), FRED (tasa).")
         with st.form("voto"):
             nombre = st.text_input("Tu nombre", max_chars=18, placeholder="Ej. Ana")
             eleccion = st.radio("Mi elección", ["Cat bond", "Bono normal"], horizontal=True, index=None)
@@ -322,20 +399,31 @@ def vista_celular():
         seguimiento(pid)
 
 
-def tabla_anios(v, filas, anio, eleccion=None):
+def tabla_anios(v, filas, anio, eleccion=None, eventos=None):
     eleccion = eleccion or v["eleccion"]
+    eventos = eventos or [None] * ANIOS
     html = ("<div class='card'><table class='flujo'><tr><th>Año</th><th>Qué pasó</th>"
             "<th class='n'>Cobraste</th><th class='n'>Invertido</th></tr>")
     for f in filas[:anio]:
+        ev = eventos[f["anio"] - 1]
+        donde = f" M{ev['mag']} en {ev['lugar']}" if ev else ""
         if eleccion == "normal":
-            txt = "<span class='ok'>Hubo sismo, no te afecta</span>" if f["evento"] else "<span class='ok'>Sin sismo</span>"
+            if ev and ev["dispara"]:
+                txt = f"<span class='ok'>Sismo{donde}: disparó los cat bonds, a ti no te afecta</span>"
+            elif ev:
+                txt = f"<span class='ok'>Sismo{donde}: no te afecta</span>"
+            else:
+                txt = "<span class='ok'>Sin sismo</span>"
         elif f["sismo"]:
-            cuando = f" en el trimestre {f['trimestre']}" if E["params"]["trimestral"] else ""
-            txt = f"<span class='mal'>Sismo{cuando}: se disparó, pierdes {dinero(f['perdido'])}</span>"
+            cuando = f" (trimestre {f['trimestre']})" if E["params"]["trimestral"] else ""
+            txt = f"<span class='mal'>Sismo{donde}{cuando}: se disparó, pierdes {dinero(f['perdido'])}</span>"
             if E["params"]["trimestral"]:
                 txt += f"<br><span style='color:#5B6672;font-size:0.82rem'>Cobraste {f['trimestre'] - 1} de 4 trimestres</span>"
         elif f["principal"] == 0:
             txt = "<span style='color:#8A939C'>Ya no cobras</span>"
+        elif ev and not ev["dispara"]:
+            txt = (f"<span style='color:#B9771E;font-weight:600'>Sismo{donde}: no alcanzó (se necesitaba {ev['umbral']}). "
+                   f"Tu bono sigue vivo</span>")
         else:
             txt = "<span class='ok'>Sin sismo</span>"
         html += (f"<tr><td><b>{f['anio']}</b></td><td>{txt}</td>"
@@ -363,7 +451,7 @@ def desglose(filas, inv):
             f"</div>")
 
 
-def resultado_final(v, sismos, filas):
+def resultado_final(v, sismos, filas, eventos=None):
     inv = E["params"]["inversion"]
     tot = total_recibido(filas)
     st.markdown(f"<div class='label'>Tu resultado</div><div class='grande'>{dinero(tot)}</div>"
@@ -378,7 +466,7 @@ def resultado_final(v, sismos, filas):
     with st.expander(f"¿Y si hubieras elegido el {nombre_otro}? Habrías recibido {dinero(tot_otro)}",
                      expanded=(otro == "cat")):
         st.caption("Mismos años y mismos sismos que te tocaron a ti.")
-        tabla_anios(v, filas_otro, ANIOS, eleccion=otro)
+        tabla_anios(v, filas_otro, ANIOS, eleccion=otro, eventos=eventos)
         st.markdown(desglose(filas_otro, inv), unsafe_allow_html=True)
 
 
@@ -393,17 +481,20 @@ def seguimiento_stand(pid):
     sismos = sismos_de(pid)
     filas = flujos(v["eleccion"], sismos)
     anio = v.get("anio", 0)
+    eventos = eventos_de(pid)
     if anio == 0:
         st.markdown("<div class='card'>Vamos a ver qué pasa con tu dinero año por año.</div>", unsafe_allow_html=True)
     else:
-        tabla_anios(v, filas, anio)
+        tabla_anios(v, filas, anio, eventos=eventos)
+        if any(eventos[:anio]):
+            mapa(eventos[:anio], alto=260, zoom=3.0)
     if anio < ANIOS:
         etiqueta = "Empezar: año 1" if anio == 0 else f"Siguiente: año {anio + 1}"
         if st.button(etiqueta, type="primary", use_container_width=True):
             v["anio"] = anio + 1
             st.rerun()
     else:
-        resultado_final(v, sismos, filas)
+        resultado_final(v, sismos, filas, eventos)
         if st.button("Jugar otra vez", use_container_width=True):
             st.query_params["id"] = uuid.uuid4().hex[:10]
             st.rerun()
@@ -420,15 +511,18 @@ def seguimiento(pid):
 
     anio = E["anio"] if E["fase"] == "sorteo" else 0
     if anio == 0:
-        st.markdown("<div class='card'>Listo. Ahora mira la pantalla: vamos a ver qué pasa año por año.</div>",
-                    unsafe_allow_html=True)
+        st.markdown("<div class='card'>Listo. Espera a que el presentador avance los años en la pantalla; "
+                    "aquí vas a ver qué le pasa a tu dinero.</div>", unsafe_allow_html=True)
         return
 
     sismos = sismos_de(pid)
+    eventos = eventos_de(pid)
     filas = flujos(v["eleccion"], sismos)
-    tabla_anios(v, filas, anio)
+    tabla_anios(v, filas, anio, eventos=eventos)
+    if any(eventos[:anio]):
+        mapa(eventos[:anio], alto=260, zoom=3.0)
     if anio == ANIOS:
-        resultado_final(v, sismos, filas)
+        resultado_final(v, sismos, filas, eventos)
 
 
 # ============================== VISTA PANTALLA ==============================
@@ -467,7 +561,10 @@ def controles():
             pr = E["params"]
             pr["p"] = st.number_input("Probabilidad anual de sismo", 0.0, 1.0, pr["p"], 0.005, format="%.4f",
                                       help="Bono vigente 2024, clase B: 5.84%.")
-            pr["tasa_normal"] = st.number_input("Tasa del bono normal", 0.0, 1.0, pr["tasa_normal"], 0.001, format="%.4f")
+            pr["tasa_normal"] = st.number_input("Tasa libre de riesgo (bono normal)", 0.0, 1.0, pr["tasa_normal"], 0.001, format="%.4f",
+                                                help="T-bill de EE.UU. a 3 meses en abril 2024, cuando se emitió el bono: 5.24% (FRED, TB3MS).")
+            pr["q_cerca"] = st.number_input("Prob. de sismo fuerte que no dispara (ilustrativo)", 0.0, 1.0, pr["q_cerca"], 0.05, format="%.2f",
+                                            help="Solo para el mapa: sismos fuertes que no alcanzan el umbral. No cambia el dinero.")
             pr["severidad"] = st.number_input("% del principal que se pierde", 0.0, 1.0, pr["severidad"], 0.25)
             pr["m"] = st.number_input("Múltiplo de riesgo (m)", 0.5, 5.0, pr["m"], 0.05, format="%.2f")
             pagos = st.radio("Pagos del cupón", ["Trimestrales", "Anuales"], index=0 if pr["trimestral"] else 1,
@@ -548,6 +645,10 @@ def pantalla_stand():
         st.markdown(f"<div class='rejilla'>{''.join(chip(r) for r in recientes)}</div>", unsafe_allow_html=True)
     if fin:
         grafica_totales([(r["nombre"], r["eleccion"], r["filas"]) for r in fin[-40:]])
+    todos = [e for pid, v in votos for e in eventos_de(pid)[:v.get("anio", 0)] if e]
+    if todos:
+        st.markdown("<div class='label' style='margin-top:24px'>Dónde tembló</div>", unsafe_allow_html=True)
+        mapa(todos, alto=440, zoom=4.0)
 
 
 @st.fragment(run_every=2)
@@ -628,6 +729,10 @@ def pantalla():
         teoria = 1 - (1 - pr["p"]) ** ANIOS
         st.markdown(comparar_html(hit_all, n, teoria, hc, hit_all - hc), unsafe_allow_html=True)
         grafica_totales([(r["nombre"], r["eleccion"], r["filas"]) for r in res.values()])
+    todos = [e for pid in votos for e in eventos_de(pid)[:anio] if e]
+    if todos and anio > 0:
+        st.markdown("<div class='label' style='margin-top:24px'>Dónde tembló</div>", unsafe_allow_html=True)
+        mapa(todos, alto=440, zoom=4.0)
         st.caption(f"Cada persona invirtió {dinero(inv)}. {regla_cupon()}")
 
 
