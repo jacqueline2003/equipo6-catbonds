@@ -12,6 +12,7 @@ Vistas:
 """
 import io
 import json
+import math
 import os
 import random
 import threading
@@ -186,22 +187,41 @@ def mapa(eventos, etiquetas=False):
             pts = [xy(lo, la) for lo, la in ring]
             path += "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in pts) + " Z "
     circulos = ""
+    puestos = []
     for e in sorted(eventos, key=lambda e: e["dispara"]):
         x, y = xy(e["lon"], e["lat"])
         r = 4 + (e["mag"] - 6.5) * 7
+        if etiquetas:
+            r = max(r, 13)
+            # si choca con un punto ya dibujado, se recorre un poco para que se vean los dos números
+            paso = 0
+            while any((x - px) ** 2 + (y - py) ** 2 < (r + pr_ + 2) ** 2 for px, py, pr_ in puestos) and paso < 12:
+                ang = paso * 0.9 - 2.4
+                x, y = x + math.cos(ang) * r * 0.9, y + math.sin(ang) * r * 0.9
+                paso += 1
+            puestos.append((x, y, r))
         color = "#B23A2B" if e["dispara"] else "#E8A33D"
         txt = f"M{e['mag']} en {e['lugar']}: " + ("disparó el bono" if e["dispara"] else f"no alcanzó (umbral {e['umbral']})")
         circulos += (f"<circle cx='{x:.1f}' cy='{y:.1f}' r='{r:.1f}' fill='{color}' fill-opacity='0.85' stroke='#fff' stroke-width='1.5'>"
                      f"<title>{txt}</title></circle>")
         if etiquetas:
-            circulos += (f"<text x='{x + r + 5:.1f}' y='{y + 7:.1f}' font-size='22' font-weight='600' font-family='Source Sans 3, sans-serif' "
-                         f"fill='#1F2A36'>Año {e['anio']} · M{e['mag']}</text>")
+            circulos += (f"<text x='{x:.1f}' y='{y + 6:.1f}' text-anchor='middle' font-size='17' font-weight='700' "
+                         f"font-family='Source Sans 3, sans-serif' fill='#fff'>{e['anio']}</text>")
     svg = (f"<svg viewBox='0 0 {W:.0f} {H:.0f}' width='100%' style='max-width:620px;display:block;margin:0 auto'>"
            f"<path d='{path}' fill='#EDE7DD' stroke='#8FA2AC' stroke-width='1.2' stroke-linejoin='round'/>{circulos}</svg>")
     leyenda = ("<div style='font-size:0.85rem;color:#5B6672;margin-top:6px;text-align:center'>"
                "<span style='display:inline-block;width:11px;height:11px;border-radius:50%;background:#B23A2B'></span> Disparó el bono &nbsp;&nbsp; "
                "<span style='display:inline-block;width:11px;height:11px;border-radius:50%;background:#E8A33D'></span> Fuerte, pero no alcanzó</div>")
-    st.markdown(f"<div class='card'>{svg}{leyenda}</div>", unsafe_allow_html=True)
+    lista = ""
+    if etiquetas:
+        for e in eventos:
+            color = "#B23A2B" if e["dispara"] else "#B9771E"
+            que = "disparó el bono" if e["dispara"] else f"no alcanzó (umbral {e['umbral']})"
+            lista += (f"<div style='font-size:0.9rem;margin-top:4px'><span style='display:inline-block;min-width:22px;height:22px;"
+                      f"border-radius:50%;background:{'#B23A2B' if e['dispara'] else '#E8A33D'};color:#fff;font-weight:700;"
+                      f"text-align:center;line-height:22px;font-size:0.8rem'>{e['anio']}</span> "
+                      f"Año {e['anio']}: M{e['mag']} en {e['lugar']}, <span style='color:{color};font-weight:600'>{que}</span></div>")
+    st.markdown(f"<div class='card'>{svg}{lista}{leyenda}</div>", unsafe_allow_html=True)
 
 
 def flujos(eleccion, sismos):
