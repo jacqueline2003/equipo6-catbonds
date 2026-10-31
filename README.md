@@ -1,48 +1,46 @@
 # Sé el inversionista
 
-Dinámica del PIA (Equipo 6, Bonos catastróficos). El público vota desde el celular y la pantalla muestra en vivo qué le pasó a cada quien en 4 años.
+App que hice para la dinámica de nuestro PIA de Productos Financieros Derivados (FCFM UANL), Equipo 6: *Bonos catastróficos: cuando un sismo es una inversión*.
 
-## Dos modos (se eligen en la pantalla, en Controles)
-
-- **Stand (por defecto): cada quien a su ritmo.** Cada visitante juega sus 4 años en su propio celular. La pantalla va sumando a todos.
-- **Salón: todos a la vez.** Todos votan, se cierra la votación y el presentador avanza los años con un botón.
-
-Cambiar de modo borra los votos.
+Cada persona recibe $10,000 dólares (de mentira) y decide si los invierte en un bono normal o en un cat bond de México. Después ve qué le pasa a su dinero en 4 años: si tembló, dónde y si el sismo fue suficiente para disparar el bono. En la pantalla se van juntando los resultados de todos.
 
 ## Links
 
-- Celular: `https://equipo6-catbonds.streamlit.app` (es el link del QR)
-- Pantalla (proyector): `https://equipo6-catbonds.streamlit.app/?vista=pantalla&clave=CLAVE`
+- Juego (es el link del QR): https://equipo6-catbonds.streamlit.app
+- Guía rápida / tríptico digital: https://equipo6-catbonds.streamlit.app/?vista=info
+- Pantalla para proyectar: `?vista=pantalla` (pide clave)
 
-Antes de la expo cambien la `CLAVE` en `app.py`.
+Tiene dos modos: **stand**, donde cada quien juega a su ritmo y la pantalla va sumando (es el que usamos en el pozo), y **salón**, donde todos votan y los años se avanzan al mismo tiempo.
 
-## Supuestos (los mismos del Excel; bono vigente de México 2024, clase B de sismo)
+## De dónde salen los números
+
+Tomé como base el bono vigente de México, emitido en 2024 con el Banco Mundial (clase B, sismo).
 
 | | Valor |
 |---|---|
 | Inversión | $10,000 dólares |
-| Probabilidad anual de sismo (p) | 5.84% |
-| Severidad (s) | 100% |
-| Tasa libre de riesgo / bono normal (r_f) | 5.24% (T-bill de EE.UU. a 3 meses, abril 2024; FRED TB3MS) |
-| Múltiplo de riesgo (m) | 1.88 (margen 11% / 5.84%) |
+| Probabilidad anual de que se dispare (p) | 5.84% (pérdida esperada del bono, Artemis) |
+| Severidad (s) | 100%, simplificación: si se dispara se pierde todo |
+| Tasa libre de riesgo / bono normal (r_f) | 5.24% (T-bill de EE.UU. a 3 meses, abril 2024, FRED TB3MS) |
+| Margen por riesgo | 11%, así que m = 0.11 / 0.0584 ≈ 1.88 |
 | Cupón del cat bond | r_f + p × s × m = 16.2% |
-| Pagos del cupón | Trimestrales (opción: anuales) |
-| Sismo fuerte que no dispara (solo para el mapa) | 30% por año, ilustrativo |
+| Pago del cupón | Trimestral, como el bono real (también se puede poner anual) |
 | Magnitud mínima para dispararse | Costa del Pacífico 7.8 (Artemis, Oaxaca 2018); centro 7.4 (ilustrativo) |
+| Sismos fuertes que no disparan | 30% por año, solo para mostrarlos en el mapa (ilustrativo) |
 
-Se cambian en la pantalla, en "Supuestos". Muévanlos **antes** de empezar, porque el cupón depende de p. Si se cambia el código, den **Reboot app** para que tome los valores nuevos.
+Los supuestos se pueden cambiar desde la pantalla, en "Supuestos".
 
-## Correrla en tu compu
+## Cómo está hecha
+
+- Python con Streamlit, publicada en Streamlit Community Cloud.
+- Cada persona tiene su propio sorteo aleatorio con semilla, así que si recarga la página le sale lo mismo.
+- Probabilidad de que se dispare en 4 años: 1 − (1 − p)⁴ ≈ 21%.
+- El valor esperado de cada bono lo calculo recorriendo todos los casos posibles (sin sismo o con sismo en alguno de los 4 trimestres de cada año).
+- El mapa de México es un SVG que dibujo a partir de un GeoJSON de dominio público.
+
+## Correrla localmente
 
 ```
 pip install -r requirements.txt
 streamlit run app.py
 ```
-
-## Subirla (gratis)
-
-1. Sube esta carpeta a un repo público de GitHub.
-2. Entra a share.streamlit.io con tu cuenta de GitHub → Create app → elige el repo y `app.py`.
-3. En "App URL" ponle un nombre, por ejemplo `equipo6-catbonds`.
-
-La app se duerme si nadie la usa en varios días. Ábrela unos minutos antes de exponer.

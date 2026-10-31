@@ -7,8 +7,9 @@ Modos (se eligen en la pantalla):
   stand -> cada visitante juega sus 4 años en su celular; la pantalla acumula a todos
 
 Vistas:
-  celular  ->  https://TU-APP.streamlit.app
-  pantalla ->  https://TU-APP.streamlit.app/?vista=pantalla&clave=CLAVE
+  celular  ->  https://equipo6-catbonds.streamlit.app
+  info     ->  https://equipo6-catbonds.streamlit.app/?vista=info
+  pantalla ->  https://equipo6-catbonds.streamlit.app/?vista=pantalla&clave=CLAVE
 """
 import io
 import json
@@ -21,7 +22,7 @@ import uuid
 import qrcode
 import streamlit as st
 
-CLAVE = "equipo6"  # cámbienla antes de la expo
+CLAVE = "equipo6"  # clave de la vista pantalla
 
 # Valores por defecto (los mismos del Excel, pestaña 3)
 DEFAULTS = {
