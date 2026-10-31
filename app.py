@@ -394,6 +394,8 @@ def vista_celular():
             <div class='anio'><span>Riesgo de perder tu dinero</span><b>ninguno</b></div>
             <p style='margin:6px 0 0;font-size:0.85rem;color:#5B6672'>Cobras tus intereses cada año y al final te regresan tus {dinero(inv)}.</p></div>""",
                         unsafe_allow_html=True)
+        st.link_button("¿Nunca has oído de un bono? Lee la guía rápida", f"{url_base()}?vista=info",
+                       use_container_width=True)
         with st.expander("Ficha del bono: datos para decidir"):
             st.markdown(f"""
 | Dato | Valor |
@@ -508,6 +510,11 @@ def resultado_final(v, sismos, filas, eventos=None):
         st.markdown(desglose(filas_otro, inv), unsafe_allow_html=True)
 
 
+def boton_info():
+    st.link_button("Llévate la info: guía rápida de bonos catastróficos", f"{url_base()}?vista=info",
+                   type="primary", use_container_width=True)
+
+
 def seguimiento_stand(pid):
     """Modo stand: cada visitante avanza sus propios años."""
     v = E["votos"].get(pid)
@@ -534,6 +541,7 @@ def seguimiento_stand(pid):
             st.rerun()
     else:
         resultado_final(v, sismos, filas, eventos)
+        boton_info()
         if st.button("Jugar otra vez", use_container_width=True):
             st.query_params["id"] = uuid.uuid4().hex[:10]
             st.rerun()
@@ -563,6 +571,7 @@ def seguimiento(pid):
         mapa(vis, etiquetas=True)
     if anio == ANIOS:
         resultado_final(v, sismos, filas, eventos)
+        boton_info()
 
 
 # ============================== VISTA PANTALLA ==============================
@@ -779,6 +788,133 @@ def pantalla():
         st.caption(f"Cada persona invirtió {dinero(inv)}. {regla_cupon()}")
 
 
+# ============================== VISTA INFO (tríptico digital) ==============================
+INFO_CSS = """
+<style>
+.info { max-width: 720px; margin: 0 auto; }
+.info, .info div, .info p, .info li, .info span { font-family:'Source Sans 3', sans-serif; }
+.info h2, .info h3 { font-family:'Space Grotesk', sans-serif !important; }
+.info h3 { font-family:'Space Grotesk',sans-serif; font-size:1.35rem; margin:0 0 6px; }
+.info .num { display:inline-flex; width:30px; height:30px; border-radius:50%; background:#043041; color:#fff;
+             align-items:center; justify-content:center; font-weight:700; font-size:0.95rem; margin-right:8px; }
+.info .sec { background:#fff; border:1px solid #E2DACD; border-radius:14px; padding:16px 18px; margin-bottom:14px; }
+.info p { margin:6px 0; line-height:1.45; }
+.info .flujo2 { display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:center; text-align:center; margin:10px 0 4px; }
+.info .caja { border-radius:10px; padding:10px 8px; font-weight:600; font-size:0.92rem; }
+.info .flecha { font-size:0.8rem; color:#5B6672; line-height:1.2; }
+.info .dos { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+@media (max-width: 520px) { .info .dos { grid-template-columns:1fr; } }
+.info .si { background:#FBEDEA; border-left:4px solid #B23A2B; border-radius:8px; padding:10px 12px; }
+.info .no { background:#EAF4EE; border-left:4px solid #2F7D4F; border-radius:8px; padding:10px 12px; }
+.info .linea { border-left:3px solid #DAE2E4; margin:8px 0 0 6px; padding-left:14px; }
+.info .linea div { margin-bottom:10px; }
+.info .anio2 { font-family:'Space Grotesk',sans-serif; font-weight:700; color:#043041; }
+.info .formula { background:#F4F1EC; border-radius:10px; padding:10px 12px; text-align:center; font-weight:600; margin:8px 0; }
+.info .nota { font-size:0.85rem; color:#5B6672; }
+.info ul { margin:4px 0 0 0; padding-left:18px; } .info li { margin-bottom:4px; }
+</style>
+"""
+
+
+def vista_info():
+    pr = E["params"]
+    c = cupon_cat()
+    extra = c - pr["tasa_normal"]
+    st.markdown(INFO_CSS, unsafe_allow_html=True)
+    st.markdown(f"""
+<div class='info'>
+<div class='label'>PIA · Equipo 6 · Bonos catastróficos</div>
+<h2 style='margin:2px 0 4px'>Bonos catastróficos en 2 minutos</h2>
+<p class='nota' style='margin-bottom:14px'>Guía rápida para llevar. No necesitas saber nada de finanzas.</p>
+
+<div class='sec'>
+<h3><span class='num'>1</span>¿Qué es un bono?</h3>
+<p>Es <b>prestarle dinero</b> a alguien, por ejemplo a un gobierno. Él te paga intereses cada cierto tiempo
+y al final te regresa tu dinero. Es como si tú fueras el banco.</p>
+<div class='flujo2'>
+  <div class='caja' style='background:#DAE2E4'>Tú</div>
+  <div class='flecha'>prestas &#36;10,000 →<br>← intereses + tus &#36;10,000</div>
+  <div class='caja' style='background:#DAE2E4'>Gobierno</div>
+</div>
+</div>
+
+<div class='sec'>
+<h3><span class='num'>2</span>¿Y un bono catastrófico?</h3>
+<p>Es un bono con una condición: si pasa una <b>catástrofe definida en el contrato</b> (un sismo o huracán muy fuerte),
+ya no te regresan tu dinero. Ese dinero se usa para atender la emergencia y reconstruir.</p>
+<p>A cambio, te pagan <b>intereses mucho más altos</b>. Es como un seguro, pero la aseguradora eres tú.
+En inglés se llama <i>cat bond</i>.</p>
+</div>
+
+<div class='sec'>
+<h3><span class='num'>3</span>¿Cómo funciona?</h3>
+<p><b>1. El gobierno</b> (o una aseguradora) quiere protegerse de un desastre y paga para transferir ese riesgo.</p>
+<p><b>2. Los inversionistas</b> ponen el dinero. Mientras tanto, se guarda en inversiones muy seguras.</p>
+<p><b>3. ¿Pasa la catástrofe antes de que venza el bono?</b></p>
+<div class='dos'>
+  <div class='no'><b>No pasa</b><br>Los inversionistas cobran sus intereses y les regresan su dinero.</div>
+  <div class='si'><b>Sí pasa</b><br>El dinero se le entrega al gobierno para la emergencia. Los inversionistas lo pierden.</div>
+</div>
+</div>
+
+<div class='sec'>
+<h3><span class='num'>4</span>¿Qué lo activa?</h3>
+<p>No se activa por los daños, sino por <b>datos que se pueden medir</b>: la magnitud del sismo y dónde ocurrió
+(o la fuerza del viento en un huracán). Así el dinero llega rápido, sin esperar meses a contar daños.</p>
+<p><b>Riesgo de base:</b> puede haber un desastre con muchos daños que no cumpla esas condiciones, y entonces no paga.
+Pasó en 2017 con el sismo de Puebla: hubo mucho daño, pero no activó el bono.</p>
+</div>
+
+<div class='sec'>
+<h3><span class='num'>5</span>México y los bonos catastróficos</h3>
+<div class='linea'>
+  <div><span class='anio2'>2006</span><br>México es el primer gobierno en usar este mercado para protegerse de desastres naturales.</div>
+  <div><span class='anio2'>2017</span><br>El sismo de Chiapas activa el bono: los inversionistas pierden <b>150 millones de dólares</b>
+  y ese dinero llega al FONDEN para reconstruir escuelas, hospitales, carreteras y vivienda.</div>
+  <div><span class='anio2'>2023</span><br>El huracán Otis activa la mitad de un bono de 2020: México recibe unos <b>62.5 millones de dólares</b>.</div>
+  <div><span class='anio2'>2024</span><br>México renueva su protección con el Banco Mundial: <b>595 millones de dólares</b>
+  (295 para sismos, 125 para huracanes del Atlántico y 175 del Pacífico), hasta 2028.</div>
+</div>
+</div>
+
+<div class='sec'>
+<h3><span class='num'>6</span>¿Por qué paga más? Aquí entra el actuario</h3>
+<p>Porque puedes perderlo todo. El interés del cat bond se arma así:</p>
+<div class='formula'>{c:.1%} = {pr['tasa_normal']:.2%} (tasa segura) + {f'{extra:.1%}'.replace('.0%', '%')} (pago por el riesgo)</div>
+<p>Cada año se espera perder alrededor de <b>{pr['p']:.2%}</b>, y el pago por el riesgo es mayor.
+Por eso, en promedio, al inversionista le conviene, aunque a algunos les toque perder.</p>
+<p><b>¿Quién calcula ese extra?</b> Un actuario: estima qué tan probable es el desastre y le pone precio al riesgo.</p>
+</div>
+
+<div class='sec'>
+<h3><span class='num'>7</span>Ventajas y limitaciones</h3>
+<div class='dos'>
+  <div><b>Ventajas</b><ul>
+    <li>Dinero rápido después del desastre, sin depender solo del presupuesto.</li>
+    <li>El riesgo se reparte entre inversionistas de todo el mundo.</li>
+  </ul></div>
+  <div><b>Limitaciones</b><ul>
+    <li>Riesgo de base: puede no pagar aunque haya daños.</li>
+    <li>Es caro: requiere modelos, asesoría y primas.</li>
+    <li>No cubre todo; es un complemento, no la solución completa.</li>
+  </ul></div>
+</div>
+</div>
+
+<div class='sec'>
+<h3><span class='num'>8</span>¿Y en el futuro?</h3>
+<p>Cada vez hay bonos así para más riesgos: inundaciones, sequías, incendios forestales y hasta <b>ciberataques</b>.
+Y con datos satelitales e inteligencia artificial se diseñan mejores condiciones de activación.</p>
+</div>
+
+<p class='nota'><b>Fuentes:</b> Banco Mundial; Artemis.bm (bonos de México 2017, 2020 y 2024); Secretaría de Hacienda (2017); FRED (tasa del Tesoro de EE.UU.).</p>
+<p class='nota'><b>Equipo 6:</b> Carla Candelaria, Jacqueline Espinosa, Lessly Ochoa, Diego Grijalva y Jaime Mendoza.
+Productos Financieros Derivados · FCFM UANL.</p>
+</div>
+""", unsafe_allow_html=True)
+    st.link_button("Ir al juego", url_base(), use_container_width=True)
+
+
 def vista_pantalla():
     if st.query_params.get("clave") != CLAVE:
         st.error("Falta la clave en el link de la pantalla.")
@@ -789,5 +925,7 @@ def vista_pantalla():
 
 if st.query_params.get("vista") == "pantalla":
     vista_pantalla()
+elif st.query_params.get("vista") == "info":
+    vista_info()
 else:
     vista_celular()
