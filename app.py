@@ -40,7 +40,7 @@ CARRERAS = ["Actuaría (LA)", "Matemáticas (LM)", "Física (LF)", "Ciencias Com
             "Multimedia y Animación Digital (LMAD)", "Seguridad en Tecnologías de la Información (LSTI)",
             "Ingeniería en Ciberseguridad (ICS)", "Otra"]
 
-st.set_page_config(page_title="Sé el inversionista", page_icon="🌎", layout="wide")
+st.set_page_config(page_title="Sé el inversionista", page_icon="🌎", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -178,7 +178,7 @@ def visibles(eventos, eleccion, anio):
     return res
 
 
-def mapa(eventos, etiquetas=False):
+def mapa(eventos, etiquetas=False, ancho=620):
     """Mapa propio de México en SVG (sin mosaicos ni zoom): rojo = disparó el bono, naranja = fuerte pero no alcanzó."""
     lon0, lon1, lat0, lat1 = -118.0, -86.0, 14.0, 33.0
     k, cosl = 20.0, 0.92
@@ -212,7 +212,7 @@ def mapa(eventos, etiquetas=False):
         if etiquetas:
             circulos += (f"<text x='{x:.1f}' y='{y + 6:.1f}' text-anchor='middle' font-size='17' font-weight='700' "
                          f"font-family='Source Sans 3, sans-serif' fill='#fff'>{e['anio']}</text>")
-    svg = (f"<svg viewBox='0 0 {W:.0f} {H:.0f}' width='100%' style='max-width:620px;display:block;margin:0 auto'>"
+    svg = (f"<svg viewBox='0 0 {W:.0f} {H:.0f}' width='100%' style='max-width:{ancho}px;display:block;margin:0 auto'>"
            f"<path d='{path}' fill='#EDE7DD' stroke='#8FA2AC' stroke-width='1.2' stroke-linejoin='round'/>{circulos}</svg>")
     leyenda = ("<div style='font-size:0.85rem;color:#5B6672;margin-top:6px;text-align:center'>"
                "<span style='display:inline-block;width:11px;height:11px;border-radius:50%;background:#B23A2B'></span> Disparó el bono &nbsp;&nbsp; "
@@ -271,7 +271,7 @@ def esperado(eleccion):
     return tot
 
 
-def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None, nota=""):
+def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None, nota="", corto=False):
     """Recuadro: cuántos tuvieron sismo en este grupo contra lo esperado, con dos barras."""
     real = hits / n if n else 0
     def barra(etiqueta, valor, color, texto):
@@ -279,7 +279,8 @@ def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None, nota=""):
                 f"<span>{etiqueta}</span><b>{texto}</b></div>"
                 f"<div style='background:#EEE7DC;border-radius:6px;height:12px;margin-top:3px'>"
                 f"<div style='width:{min(valor, 1) * 100:.0f}%;background:{color};height:12px;border-radius:6px'></div></div></div>")
-    return ("<div class='card'><b>¿A cuántos les tocó un sismo que dispara el bono? (contando a todos)</b>"
+    titulo = "¿A cuántos les tocó un sismo que dispara el bono?" if corto else "¿A cuántos les tocó un sismo que dispara el bono? (contando a todos)"
+    return (f"<div class='card'><b>{titulo}</b>"
             + barra(f"En este grupo ({hits} de {n}{nota})", real, "#B23A2B", f"{real:.0%}")
             + barra(f"Lo esperado ({teoria * n:.1f} de {n} en promedio)", teoria, "#9AA3AC", f"{teoria:.0%}")
             + (f"<div style='display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:0.9rem'>"
@@ -288,9 +289,10 @@ def comparar_html(hits, n, teoria, hits_cat=None, hits_normal=None, nota=""):
                f"<span><span class='tag tag-normal'>{hits_normal}</span> "
                f"{'tenía bono normal: no le afectó' if hits_normal == 1 else 'tenían bono normal: no les afectó'}</span></div>"
                if hits_cat is not None else "")
-            + f"<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>{teoria:.0%} = probabilidad de que en {ANIOS} años haya al menos un sismo que dispare el bono. "
+            + ("</div>" if corto else "")
+            + ("" if corto else f"<p style='margin:8px 0 0;font-size:0.85rem;color:#5B6672'>{teoria:.0%} = probabilidad de que en {ANIOS} años haya al menos un sismo que dispare el bono. "
               f"Contamos a todos porque el sismo no depende del bono que elegiste. "
-              f"Con más gente, el grupo se acerca al {teoria:.0%}.</p></div>")
+              f"Con más gente, el grupo se acerca al {teoria:.0%}.</p></div>"))
 
 
 def grafica_totales(filas_personas):
@@ -666,17 +668,40 @@ def carreras_html(res):
             t[1] += r["eleccion"] == "cat"
     if not cuenta:
         return ""
-    filas = sorted(cuenta.items(), key=lambda kv: (-kv[1][1] / kv[1][0], -kv[1][0]))
+    filas = sorted(cuenta.items(), key=lambda kv: (-kv[1][1] / kv[1][0], -kv[1][0]))[:6]
     html = "<div class='card'><div class='label'>¿Qué carrera se arriesga más?</div>"
     for nombre, (n, c) in filas:
         pct = c / n
-        html += (f"<div style='display:flex;align-items:center;gap:8px;margin:6px 0'>"
-                 f"<div style='width:52px;font-weight:700'>{nombre}</div>"
-                 f"<div style='flex:1;background:#EEE7DC;border-radius:6px;height:16px;overflow:hidden'>"
+        html += (f"<div style='display:flex;align-items:center;gap:8px;margin:4px 0;font-size:0.9rem'>"
+                 f"<div style='width:46px;font-weight:700'>{nombre}</div>"
+                 f"<div style='flex:1;background:#EEE7DC;border-radius:6px;height:12px;overflow:hidden'>"
                  f"<div style='width:{pct:.0%};background:#C8553D;height:100%'></div></div>"
-                 f"<div style='width:120px;text-align:right;font-size:0.85rem'><b>{pct:.0%}</b> cat bond · {n}</div></div>")
-    html += "<div style='font-size:0.78rem;color:#5B6672;margin-top:4px'>% que eligió cat bond · número de personas</div></div>"
+                 f"<div style='width:64px;text-align:right;font-size:0.85rem'><b>{pct:.0%}</b> · {n}</div></div>")
+    html += "<div style='font-size:0.78rem;color:#5B6672;margin-top:4px'>% que eligió cat bond · personas</div></div>"
     return html
+
+
+def resumen_html(fin):
+    """¿Cómo les fue? en tres renglones compactos."""
+    inv = E["params"]["inversion"]
+    grupos = [("Cat bond: no se disparó", "#3C8D5A", [r for r in fin if r["eleccion"] == "cat" and not r["golpeado"]]),
+              ("Bono normal", "#2E5E8C", [r for r in fin if r["eleccion"] == "normal"]),
+              ("Cat bond: se disparó", "#B23A2B", [r for r in fin if r["eleccion"] == "cat" and r["golpeado"]])]
+    html = "<div class='card' style='padding:10px 14px'><div class='label'>¿Cómo les fue?</div>"
+    for titulo, color, lst in grupos:
+        if lst:
+            tots = [total_recibido(r["filas"]) for r in lst]
+            lo, hi = min(tots), max(tots)
+            rec = dinero(lo) if round(lo) == round(hi) else f"{dinero(lo)} a {dinero(hi)}"
+            neto = sum(tots) / len(tots) - inv
+            res = f"<b style='color:{color}'>{'ganaron' if neto >= 0 else 'perdieron'} {dinero(abs(neto))}{'' if round(lo) == round(hi) else ' en promedio'}</b>"
+        else:
+            rec, res = "nadie", ""
+        html += (f"<div style='display:flex;align-items:baseline;gap:10px;padding:4px 0;border-top:1px solid #EEE7DC'>"
+                 f"<div style='font-family:Space Grotesk,sans-serif;font-size:1.6rem;font-weight:700;color:{color};min-width:36px'>{len(lst)}</div>"
+                 f"<div style='flex:1'><div style='font-weight:600'>{titulo}</div>"
+                 f"<div style='font-size:0.85rem;color:#5B6672'>recibieron {rec} &nbsp;{res}</div></div></div>")
+    return html + "</div>"
 
 
 def pantalla_stand():
@@ -697,52 +722,51 @@ def pantalla_stand():
     n_cat = sum(r["eleccion"] == "cat" for r in res)
     golpeados = sum(r["golpeado"] for r in res)
 
-    izq, der = st.columns([1, 1.5], gap="large")
-    with izq:
-        st.markdown("<div class='label'>Escanea y juega</div>", unsafe_allow_html=True)
-        st.markdown(qr_html(url_base()), unsafe_allow_html=True)
-        st.caption(url_base())
-        st.markdown(carreras_html(res), unsafe_allow_html=True)
-    with der:
-        st.markdown("# ¿Dónde pondrías tus $10,000 dólares?")
-        st.markdown(f"<span class='tag tag-cat'>Cat bond · {cupon_cat():.1%}</span> &nbsp; "
-                    f"<span class='tag tag-normal'>Bono normal · {pr['tasa_normal']:.1%}</span>",
+    st.markdown("<style>.block-container{padding-top:2.9rem !important;padding-bottom:0.4rem !important;max-width:100% !important}"
+                ".card{margin-bottom:8px}</style>", unsafe_allow_html=True)
+    st.markdown(f"<div style='display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:6px'>"
+                f"<div class='big' style='font-size:2.1rem;line-height:1.1'>¿Dónde pondrías tus 10,000 dólares?</div>"
+                f"<span class='tag tag-cat'>Cat bond · {cupon_cat():.1%}</span>"
+                f"<span class='tag tag-normal'>Bono normal · {pr['tasa_normal']:.1%}</span></div>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([0.8, 1.15, 1.15], gap="medium")
+    with c1:
+        st.markdown("<div class='card' style='text-align:center;padding:10px'><div class='label'>Escanea y juega</div>"
+                    f"<div style='max-width:250px;margin:4px auto'>{qr_html(url_base())}</div>"
+                    "<div style='font-size:0.8rem;color:#5B6672'>equipo6-catbonds.streamlit.app</div></div>",
                     unsafe_allow_html=True)
-        st.write("")
-        a, b, c = st.columns(3)
-        a.markdown(f"<div class='label'>Han jugado</div><div class='metric'>{n}</div>"
-                   + (f"<div style='font-size:0.85rem;color:#5B6672;margin-top:-6px'>{n - len(fin)} {'sigue' if n - len(fin) == 1 else 'siguen'} jugando</div>" if n > len(fin) else ""),
-                   unsafe_allow_html=True)
-        b.markdown(f"<div class='label'>Eligieron cat bond</div><div class='metric' style='color:#C8553D'>{n_cat}</div>", unsafe_allow_html=True)
-        c.markdown(f"<div class='label'>Eligieron bono normal</div><div class='metric' style='color:#2E5E8C'>{n - n_cat}</div>", unsafe_allow_html=True)
-        x, y = st.columns(2)
-        if cat:
-            x.markdown(f"<div class='label'>Promedio cat bond</div><div class='metric' style='color:#C8553D'>{dinero(sum(cat)/len(cat))}</div>", unsafe_allow_html=True)
-        if nor:
-            y.markdown(f"<div class='label'>Promedio bono normal</div><div class='metric' style='color:#2E5E8C'>{dinero(sum(nor)/len(nor))}</div>", unsafe_allow_html=True)
+        st.markdown(carreras_html(res), unsafe_allow_html=True)
+    with c2:
+        sigue = n - len(fin)
+        st.markdown("<div class='card' style='padding:10px 14px'><div style='display:flex;justify-content:space-between;text-align:center'>"
+                    f"<div><div class='label'>Han jugado</div><div class='metric' style='font-size:2.2rem;margin:0'>{n}</div>"
+                    + (f"<div style='font-size:0.75rem;color:#5B6672'>{sigue} {'sigue' if sigue == 1 else 'siguen'} jugando</div>" if sigue else "")
+                    + f"</div><div><div class='label'>Cat bond</div><div class='metric' style='font-size:2.2rem;margin:0;color:#C8553D'>{n_cat}</div></div>"
+                    f"<div><div class='label'>Bono normal</div><div class='metric' style='font-size:2.2rem;margin:0;color:#2E5E8C'>{n - n_cat}</div></div>"
+                    "</div>"
+                    + (f"<div style='display:flex;justify-content:space-around;border-top:1px solid #EEE7DC;margin-top:8px;padding-top:8px;text-align:center'>"
+                       f"<div><div class='label'>Promedio cat bond</div><div class='big' style='font-size:1.6rem;color:#C8553D'>{dinero(sum(cat)/len(cat)) if cat else '—'}</div></div>"
+                       f"<div><div class='label'>Promedio bono normal</div><div class='big' style='font-size:1.6rem;color:#2E5E8C'>{dinero(sum(nor)/len(nor)) if nor else '—'}</div></div></div>"
+                       if fin else "")
+                    + "</div>", unsafe_allow_html=True)
         if fin:
+            st.markdown(resumen_html(fin), unsafe_allow_html=True)
             hit_all = sum(any(r["sismos"]) for r in fin)
             hc = sum(any(r["sismos"]) for r in fin if r["eleccion"] == "cat")
             teoria = 1 - (1 - pr["p"]) ** ANIOS
-            st.markdown(comparar_html(hit_all, len(fin), teoria, hc, hit_all - hc, nota=" que ya terminaron" if len(fin) < n else ""), unsafe_allow_html=True)
-
-    if res:
-        titulo_lista = "Todos los que han jugado" if len(res) <= 40 else f"Los 40 más recientes (de {len(res)})"
-        st.markdown(f"<div class='label' style='margin-top:10px'>{titulo_lista}</div>", unsafe_allow_html=True)
-        st.markdown("<span class='tag' style='background:#9AA3AC;color:#fff'>Jugando</span> &nbsp; "
-                    "<span class='tag' style='background:#3C8D5A;color:#fff'>Cat bond: no se disparó</span> &nbsp; "
-                    "<span class='tag' style='background:#B23A2B;color:#fff'>Cat bond: se disparó</span> &nbsp; "
-                    "<span class='tag tag-normal'>Bono normal</span> &nbsp; "
-                    "<span class='tag tag-normal' style='box-shadow: inset 0 0 0 2px #E8A33D'>Bono normal: tembló fuerte, no le afecta</span>", unsafe_allow_html=True)
-        st.write("")
-        recientes = res[-40:][::-1]
-        st.markdown(f"<div class='rejilla'>{''.join(chip(r) for r in recientes)}</div>", unsafe_allow_html=True)
-    if fin:
-        grafica_totales([(r["nombre"], r["eleccion"], r["filas"]) for r in fin[-40:]])
-    todos = [e for pid, v in votos for e in visibles(eventos_de(pid), v["eleccion"], v.get("anio", 0))]
-    if todos:
-        st.markdown("<div class='label' style='margin-top:24px'>Dónde tembló</div>", unsafe_allow_html=True)
-        mapa(todos)
+            st.markdown(comparar_html(hit_all, len(fin), teoria, hc, hit_all - hc,
+                                      nota=" que ya terminaron" if len(fin) < n else "", corto=True), unsafe_allow_html=True)
+    with c3:
+        todos = [e for pid, v in votos for e in visibles(eventos_de(pid), v["eleccion"], v.get("anio", 0))]
+        st.markdown("<div class='label'>Dónde tembló</div>", unsafe_allow_html=True)
+        mapa(todos, ancho=460)
+        if res:
+            recientes = res[-12:][::-1]
+            st.markdown("<div class='label' style='margin-top:4px'>Últimos en jugar</div>"
+                        f"<div class='rejilla' style='grid-template-columns:repeat(3,1fr);gap:6px'>{''.join(chip(r) for r in recientes)}</div>"
+                        "<div style='font-size:0.75rem;color:#5B6672;margin-top:6px'>"
+                        "<span style='color:#3C8D5A'>■</span> cat bond, no se disparó &nbsp; <span style='color:#B23A2B'>■</span> cat bond, se disparó &nbsp; "
+                        "<span style='color:#2E5E8C'>■</span> bono normal &nbsp; <span style='color:#9AA3AC'>■</span> jugando</div>",
+                        unsafe_allow_html=True)
 
 
 @st.fragment(run_every=4)
