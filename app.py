@@ -17,6 +17,7 @@ import math
 import os
 import random
 import threading
+import time
 import uuid
 
 import qrcode
@@ -35,6 +36,19 @@ DEFAULTS = {
     "trimestral": True,    # cupón por trimestre (como el bono real) o una vez al año
 }
 ANIOS = 4
+CARRERAS = ["Actuaría (LA)", "Matemáticas (LM)", "Física (LF)", "Ciencias Computacionales (LCC)",
+            "Multimedia y Animación Digital (LMAD)", "Seguridad en Tecnologías de la Información (LSTI)",
+            "Ingeniería en Ciberseguridad (ICS)", "Otra"]
+DATOS = [
+    "En 2017 el sismo de Chiapas disparó el bono: los inversionistas perdieron 150 millones de dólares y ese dinero se usó para reconstruir.",
+    "México fue el primer gobierno en usar bonos catastróficos para protegerse de desastres naturales, en 2006.",
+    "Hoy México tiene 595 millones de dólares de protección con bonos del Banco Mundial, hasta 2028.",
+    "El bono no se activa por los daños, sino por la magnitud y el lugar del sismo. Así el dinero llega en semanas.",
+    "Con el huracán Otis, en 2023, se activó la mitad de un bono: México recibió 62.5 millones de dólares.",
+    "El sismo de Puebla de 2017 causó mucho daño, pero no activó el bono. A eso se le llama riesgo de base.",
+    "¿Quién calcula cuánto debe pagar un cat bond? Un actuario: estima qué tan probable es el desastre y le pone precio al riesgo.",
+    "Ya existen bonos así para huracanes, inundaciones, incendios y hasta ciberataques.",
+]
 
 st.set_page_config(page_title="Sé el inversionista", page_icon="🌎", layout="wide")
 
@@ -420,16 +434,18 @@ def vista_celular():
                        "Fuentes: Banco Mundial, Artemis (2017 y abril 2024), FRED (tasa).")
         with st.form("voto"):
             nombre = st.text_input("Tu nombre", max_chars=18, placeholder="Ej. Ana")
+            carrera = st.selectbox("Tu carrera", CARRERAS, index=None, placeholder="Elige tu carrera")
             eleccion = st.radio("Mi elección", ["Cat bond", "Bono normal"], horizontal=True, index=None)
             if st.form_submit_button("Invertir", type="primary", use_container_width=True):
-                if not nombre.strip() or eleccion is None:
-                    st.warning("Escribe tu nombre y elige un bono.")
+                if not nombre.strip() or eleccion is None or carrera is None:
+                    st.warning("Escribe tu nombre, elige tu carrera y un bono.")
                 elif not stand and E["fase"] != "votacion":
                     st.info("La votación ya cerró.")
                 else:
                     with E["lock"]:
                         E["votos"][pid] = {"nombre": nombre.strip(),
                                            "eleccion": "cat" if eleccion == "Cat bond" else "normal",
+                                           "carrera": carrera,
                                            "anio": 0}
                     st.rerun()
         return
@@ -639,6 +655,39 @@ def chip(r):
     return f"<div class='persona {cls}'>{r['nombre']}</div>"
 
 
+def corto(carrera):
+    return carrera.split("(")[-1].rstrip(")") if "(" in carrera else carrera
+
+
+def carreras_html(res):
+    cuenta = {}
+    for r in res:
+        k = r.get("carrera")
+        if k:
+            t = cuenta.setdefault(corto(k), [0, 0])
+            t[0] += 1
+            t[1] += r["eleccion"] == "cat"
+    if not cuenta:
+        return ""
+    filas = sorted(cuenta.items(), key=lambda kv: (-kv[1][1] / kv[1][0], -kv[1][0]))
+    html = "<div class='card'><div class='label'>¿Qué carrera se arriesga más?</div>"
+    for nombre, (n, c) in filas:
+        pct = c / n
+        html += (f"<div style='display:flex;align-items:center;gap:8px;margin:6px 0'>"
+                 f"<div style='width:52px;font-weight:700'>{nombre}</div>"
+                 f"<div style='flex:1;background:#EEE7DC;border-radius:6px;height:16px;overflow:hidden'>"
+                 f"<div style='width:{pct:.0%};background:#C8553D;height:100%'></div></div>"
+                 f"<div style='width:120px;text-align:right;font-size:0.85rem'><b>{pct:.0%}</b> cat bond · {n}</div></div>")
+    html += "<div style='font-size:0.78rem;color:#5B6672;margin-top:4px'>% que eligió cat bond · número de personas</div></div>"
+    return html
+
+
+def dato_html():
+    d = DATOS[int(time.time() // 8) % len(DATOS)]
+    return (f"<div class='card' style='border-left:5px solid #043041'><div class='label'>¿Sabías que…?</div>"
+            f"<div style='font-size:1.05rem;line-height:1.4'>{d}</div></div>")
+
+
 def pantalla_stand():
     pr = E["params"]
     votos = list(E["votos"].items())
@@ -662,6 +711,8 @@ def pantalla_stand():
         st.markdown("<div class='label'>Escanea y juega</div>", unsafe_allow_html=True)
         st.image(qr_png(url_base()), use_container_width=True)
         st.caption(url_base())
+        st.markdown(dato_html(), unsafe_allow_html=True)
+        st.markdown(carreras_html(res), unsafe_allow_html=True)
     with der:
         st.markdown("# ¿Dónde pondrías tus $10,000 dólares?")
         st.markdown(f"<span class='tag tag-cat'>Cat bond · {cupon_cat():.1%}</span> &nbsp; "
