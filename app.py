@@ -18,7 +18,6 @@ import math
 import os
 import random
 import threading
-import time
 import uuid
 
 import qrcode
@@ -40,16 +39,6 @@ ANIOS = 4
 CARRERAS = ["Actuaría (LA)", "Matemáticas (LM)", "Física (LF)", "Ciencias Computacionales (LCC)",
             "Multimedia y Animación Digital (LMAD)", "Seguridad en Tecnologías de la Información (LSTI)",
             "Ingeniería en Ciberseguridad (ICS)", "Otra"]
-DATOS = [
-    "En 2017 el sismo de Chiapas disparó el bono: los inversionistas perdieron 150 millones de dólares y ese dinero se usó para reconstruir.",
-    "México fue el primer gobierno en usar bonos catastróficos para protegerse de desastres naturales, en 2006.",
-    "Hoy México tiene 595 millones de dólares de protección con bonos del Banco Mundial, hasta 2028.",
-    "El bono no se activa por los daños, sino por la magnitud y el lugar del sismo. Así el dinero llega en semanas.",
-    "Con el huracán Otis, en 2023, se activó la mitad de un bono: México recibió 62.5 millones de dólares.",
-    "El sismo de Puebla de 2017 causó mucho daño, pero no activó el bono. A eso se le llama riesgo de base.",
-    "¿Quién calcula cuánto debe pagar un cat bond? Un actuario: estima qué tan probable es el desastre y le pone precio al riesgo.",
-    "Ya existen bonos así para huracanes, inundaciones, incendios y hasta ciberataques.",
-]
 
 st.set_page_config(page_title="Sé el inversionista", page_icon="🌎", layout="wide")
 
@@ -690,12 +679,6 @@ def carreras_html(res):
     return html
 
 
-def dato_html():
-    d = DATOS[int(time.time() // 8) % len(DATOS)]
-    return (f"<div class='card' style='border-left:5px solid #043041'><div class='label'>¿Sabías que…?</div>"
-            f"<div style='font-size:1.05rem;line-height:1.4'>{d}</div></div>")
-
-
 def pantalla_stand():
     pr = E["params"]
     votos = list(E["votos"].items())
@@ -719,7 +702,6 @@ def pantalla_stand():
         st.markdown("<div class='label'>Escanea y juega</div>", unsafe_allow_html=True)
         st.markdown(qr_html(url_base()), unsafe_allow_html=True)
         st.caption(url_base())
-        st.markdown(dato_html(), unsafe_allow_html=True)
         st.markdown(carreras_html(res), unsafe_allow_html=True)
     with der:
         st.markdown("# ¿Dónde pondrías tus $10,000 dólares?")
