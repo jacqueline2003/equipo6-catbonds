@@ -11,6 +11,7 @@ Vistas:
   info     ->  https://equipo6-catbonds.streamlit.app/?vista=info
   pantalla ->  https://equipo6-catbonds.streamlit.app/?vista=pantalla&clave=CLAVE
 """
+import base64
 import io
 import json
 import math
@@ -359,6 +360,7 @@ def prob_4_anios():
     return 1 - (1 - E["params"]["p"]) ** ANIOS
 
 
+@st.cache_data(show_spinner=False)
 def qr_png(url):
     img = qrcode.make(url, box_size=10, border=2)
     buf = io.BytesIO()
@@ -366,12 +368,18 @@ def qr_png(url):
     return buf.getvalue()
 
 
+def qr_html(url):
+    # Imagen incrustada: no depende del servidor de archivos, así no desaparece al refrescarse la pantalla
+    b64 = base64.b64encode(qr_png(url)).decode()
+    return f"<img src='data:image/png;base64,{b64}' style='width:100%;max-width:420px;display:block;background:#fff;border-radius:10px'>"
+
+
 def url_base():
     try:
         u = st.context.url
         return u.split("?")[0].rstrip("/")
     except Exception:
-        return "https://TU-APP.streamlit.app"
+        return "https://equipo6-catbonds.streamlit.app"
 
 
 # ============================== VISTA CELULAR ==============================
@@ -709,7 +717,7 @@ def pantalla_stand():
     izq, der = st.columns([1, 1.5], gap="large")
     with izq:
         st.markdown("<div class='label'>Escanea y juega</div>", unsafe_allow_html=True)
-        st.image(qr_png(url_base()), use_container_width=True)
+        st.markdown(qr_html(url_base()), unsafe_allow_html=True)
         st.caption(url_base())
         st.markdown(dato_html(), unsafe_allow_html=True)
         st.markdown(carreras_html(res), unsafe_allow_html=True)
@@ -755,7 +763,7 @@ def pantalla_stand():
         mapa(todos)
 
 
-@st.fragment(run_every=2)
+@st.fragment(run_every=4)
 def pantalla():
     if E["modo"] == "stand":
         pantalla_stand()
@@ -769,7 +777,7 @@ def pantalla():
         izq, der = st.columns([1, 1.3], gap="large")
         with izq:
             st.markdown("<div class='label'>Escanea y vota</div>", unsafe_allow_html=True)
-            st.image(qr_png(url_base()), use_container_width=True)
+            st.markdown(qr_html(url_base()), unsafe_allow_html=True)
             st.caption(url_base())
         with der:
             st.markdown("# ¿Dónde pondrías tus $10,000 dólares?")
